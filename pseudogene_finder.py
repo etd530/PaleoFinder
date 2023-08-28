@@ -27,16 +27,25 @@ import pandas as pd
 
 #### FUNS ####
 def make_blast_db(genome):
-	os.system("makeblastdb -dbtype nucl -in " + genome)
+	if not os.path.exists(genome+'.nhr'):
+		os.system("makeblastdb -dbtype nucl -in " + genome)
+	else:
+		print("WARNING: BLAST database already found for " + genome + ". Skipping database building.") # Could implement a force flag if they want to rerun, but let's see if we end up using submodules...
 
 
 def tblastn(query, target, wordsize, matrix, max_evalue, seg_filter, threads, outprefix):
 	blast_file = outprefix + ".wordsize" + wordsize + "." + matrix + ".evalue" + max_evalue + ".seg" + seg_filter.replace('"', '') + ".out"
 	blast_file = blast_file.replace(' ', '_')
-	tblastn_command="tblastn -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt 6 -num_threads " + threads + " -seg " + seg_filter + " -out " + blast_file
-	os.system(tblastn_command)
+
+	if not os.path.exists(blast_file):
+		tblastn_command="tblastn -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt 6 -num_threads " + threads + " -seg " + seg_filter + " -out " + blast_file
+		os.system(tblastn_command)
+	else:
+		print("WARNING: tBLASTn results found at " + blast_file + ". Skipping tBLASTN step.")
+	
 	tblastn_results = pd.read_csv(blast_file, sep='\t', header = None)
 	tblastn_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore'}, inplace = True)
+	
 	return(tblastn_results)
 
 def find_primary_seed_coordinates(tblastn_df, query_seq_id):
@@ -45,9 +54,9 @@ def find_primary_seed_coordinates(tblastn_df, query_seq_id):
 	for index, row in tblastn_df_subset.iterrows():
 		newkey = row['sseqid']
 		if newkey in primary_seeds.keys():
-			primary_seeds[newkey].append((row['sstart'], row['send']))
+			primary_seeds[newkey].append([row['sstart'], row['send']])
 		else:
-			primary_seeds[newkey] = [(row['sstart'], row['send'])]
+			primary_seeds[newkey] = [[row['sstart'], row['send']]]
 		
 		# print(newkey)
 		# primary_seeds
@@ -66,14 +75,26 @@ def find_primary_seed_coordinates(tblastn_df, query_seq_id):
 def extract_fragments_from_fasta(file, fragments_list):
 	with open(file) as fh:
 		for sequence in FastaIO.FastaIterator(fh):
-			if sequence.id == seqid:
-				fragment = sequence.seq[start:end]
-	return fragment
+			if sequence.id in fragments_list.keys():
+				for coordinate_pair in fragments_list[sequence.id]:
+					if coordinate_pair[0] < coordinate_pair[1]:
+						fragment = sequence.seq[coordinate_pair[0]-1:coordinate_pair[1]] # since BLAST is 1-based indexing we need to substract 1
+					else:
+						fragment = sequence.seq[coordinate_pair[1]-1:coordinate_pair[0]] # idem
+						fragment = fragment.reverse_complement()
+					fragments_list[sequence.id][fragments_list[sequence.id].index(coordinate_pair)].append(fragment)
 
-# def translate_three_frames(seq, forward = True):
-# 	if forward:
-		
 
+def translate_three_frames(fragments_list):
+	for scaffold, scaffold_hits in fragments_list.items():
+		for hit in scaffold_hits:
+			peptide1 = hit[2].translate()
+			print(len(peptide1))
+			peptide2 = hit[2][1:].translate()
+			print(len(peptide2))
+			peptide3 = hit[2][2:].translate()
+			print(len(peptide3))
+			fragments_list[scaffold][fragments_list[scaffold].index(hit)].append([peptide1, peptide2, peptide3])
 
 
 
@@ -118,14 +139,11 @@ if __name__ == '__main__':
 
 			primary_seeds = find_primary_seed_coordinates(tblastn_output, protein_id)
 			
+			extract_fragments_from_fasta(file=args['--genome'], fragments_list=primary_seeds)
+
+			translate_three_frames(fragments_list=primary_seeds)
+
 			print(primary_seeds)
-
-			for index in range(0, len(primary_seeds)):
-				current_seed = primary_seeds[index]
-				current_seed_sequence = extract_fragments_from_fasta(file=args['--genome'], seqid=current_seed[0], start=current_seed[1], end=current_seed[2])
-				primary_seeds[index].append(current_seed_sequence)
-
-			
 
 	if args['--verbose']:
 		print("Execution finished.")
