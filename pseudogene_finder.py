@@ -21,6 +21,7 @@ usage: pseudogene_finder.py --proteins=FASTA --genome=FASTA [--tblastn_wordsize=
 #### LIBS ####
 from docopt import docopt
 from Bio.SeqIO import FastaIO
+from Bio import Align, AlignIO
 import os
 import pandas as pd
 
@@ -85,16 +86,60 @@ def extract_fragments_from_fasta(file, fragments_list):
 					fragments_list[sequence.id][fragments_list[sequence.id].index(coordinate_pair)].append(fragment)
 
 
-def translate_three_frames(fragments_list):
+def translate_dna(fragments_list, frames = [0, 1, 2]):
 	for scaffold, scaffold_hits in fragments_list.items():
 		for hit in scaffold_hits:
-			peptide1 = hit[2].translate()
-			print(len(peptide1))
-			peptide2 = hit[2][1:].translate()
-			print(len(peptide2))
-			peptide3 = hit[2][2:].translate()
-			print(len(peptide3))
-			fragments_list[scaffold][fragments_list[scaffold].index(hit)].append([peptide1, peptide2, peptide3])
+			peptide_list = []
+			for frame in frames:
+				peptide = hit[2][frame:].translate()
+				peptide_list.append(peptide)
+			fragments_list[scaffold][fragments_list[scaffold].index(hit)].append(peptide_list)
+
+
+def align_peptides(protein, fragments_list):
+	# aligner = Align.PairwiseAligner(mode='global', substitution_matrix=Align.substitution_matrices.load("BLOSUM62"),
+	# 	open_gap_score = -12, extend_gap_score = -5)
+	alignments_list = []
+	for scaffold, scaffold_hits in fragments_list.items():
+		# print(scaffold)
+		for hit in scaffold_hits:
+			# print(hit)
+			for peptide in hit[3]:
+				with open("pairwise_seqs.fa", 'w') as fh:
+					fh.write('>%s\n%s\n>%s.%s.%s\n%s\n' % (protein.id, protein.seq, scaffold, str(hit[0]), str(hit[1]), peptide))
+				os.system('clustalo --infile pairwise_seqs.fa > pairwise_seqs.clustalo.fa')
+				alignment = AlignIO.read('pairwise_seqs.clustalo.fa', 'fasta')
+				alignments_list.append(alignment)
+	AlignIO.write(alignments_list, 'alignments.all.fa', 'fasta')
+
+
+# def extend_seed(genome, coordinates, protein_homolog, direction = 'downstream'):
+# 	# Get the fragment to evaluate
+# 	next_fragment = extract_fragments_from_fasta(genome, coordinates)
+
+# 	# Translate the fragment to peptide in all 3 reading frames
+# 	peptides = translate_dna()
+
+# 	# Align all 3 peptides to the protein homolog
+# 	align_peptides()
+
+# 	# Compute the %ID and the distance between beginning of new aligned peptide and end of previous aligned peptide
+# 	pid = 
+# 	distance_gap = 
+
+# 	# If distance gap is low and pid is high, repeat the process for the following 90bp fragment (checking there are 30AA left until the end of the homolog!)
+# 	if pid >= 25 and distance_gap <= 10:
+# 		extend_seed()
+	
+# 	# else (if there is enough homolog sequence left) take a 300bp and do local alignment
+
+# 	# else stop and return the fragments
+# 	return fragment
+
+# 	else:
+
+
+
 
 
 
@@ -121,15 +166,17 @@ if __name__ == '__main__':
 	if args['--verbose']:
 		print("Building BLAST database...")
 	
+	# Make BLAST nucleotide database with the query genome where we wish to find pseudogenes
 	make_blast_db(genome=args['--genome'])
 
 	if args['--verbose']:
 		print("Executing tBLASTn search...")
 
+	# Run the tblastn search of the closest homolog proteins against the query genome
 	tblastn_output = tblastn(query=args['--proteins'], target=args['--genome'], wordsize=args['--tblastn_wordsize'], matrix=args['--tblastn_matrix'], 
 		max_evalue=args['--tblastn_max_evalue'], seg_filter=args['--tblastn_seg_filter'], threads = args['--tblastn_threads'], outprefix=args['--outprefix'])
 
-
+	# The rest of steps are done protein homolog by protein homolog
 	with open(args['--proteins']) as proteins_fh:
 		for protein in FastaIO.FastaIterator(proteins_fh):
 			protein_id = protein.id
@@ -137,13 +184,22 @@ if __name__ == '__main__':
 			if args['--verbose']:
 				print("Processing results for protein %s" % protein_id)
 
+			# Get which positions in the query genome that match the protein homolog
 			primary_seeds = find_primary_seed_coordinates(tblastn_output, protein_id)
 			
+			# Extract the nucleotide sequence corresponding to those positions
 			extract_fragments_from_fasta(file=args['--genome'], fragments_list=primary_seeds)
 
-			translate_three_frames(fragments_list=primary_seeds)
+			# Translate the nucleotide sequence to AA
+			translate_dna(fragments_list=primary_seeds, frames = [0]) # since this comes from tblastn the frist frame is already the good one
+
+			# Align the peptide seed to the protein homolog
+			align_peptides(protein = protein, fragments_list=primary_seeds)
 
 			print(primary_seeds)
+
+			# Conduct seed extension
+			# extend_seed()
 
 	if args['--verbose']:
 		print("Execution finished.")
