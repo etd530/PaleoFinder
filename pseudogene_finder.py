@@ -114,10 +114,13 @@ def align_peptides(protein, fragments_list):
 				# print(candidate)
 				# print(candidate[3])
 				# print(peptide)
-				with open("pairwise_seqs.fa", 'w') as fh:
-					fh.write('>%s\n%s\n>%s.%s.%s\n%s\n' % (protein.id, protein.seq, scaffold, str(hit[0][0]), str(hit[0][1]), candidate[3]))
-				os.system('clustalo --infile pairwise_seqs.fa > pairwise_seqs.clustalo.fa')
-				alignment = AlignIO.read('pairwise_seqs.clustalo.fa', 'fasta')
+				with open("seqa.fa", 'w') as fh:
+					fh.write('>%s\n%s\n' % (protein.id, protein.seq))
+				with open('seqb.fa', 'w') as fh:
+					fh.write('>%s.%s.%s\n%s\n' % (scaffold, str(hit[0][0]), str(hit[0][1]), candidate[3]))
+
+				os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta')
+				alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
 				alignments_list.append(alignment)
 	return(alignments_list)
 
@@ -134,8 +137,9 @@ def get_scaffold_from_fasta(genome, scaffold):
 			if sequence.id == scaffold:
 				return(sequence.seq)
 
-def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direction = 'downstream'):
-	# print(candidate_peptide)
+def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direction = 'downstream', order = 0):
+	order += 1
+	print(candidate_peptide)
 	# Get coordinates of next fragment to evaluate (1-based indexing since these are BLAST coordinates)
 	if direction == 'downstream':
 		if candidate_peptide[0] < candidate_peptide[1]:
@@ -163,7 +167,9 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 
 		# Align each peptide to the protein homolog, evaluate the alignment and if it is good, append the fragment
 		for index in range(0, len(peptides_list)):
-			# print(peptides_list[index])
+			print('TESTING PEPTIDE:')
+			print(peptides_list[index])
+			print('PEPTIDE FRAME: ' + str(index))
 			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index])
 			# print(alignment)
 
@@ -187,9 +193,10 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 
 			# Compute PID without considering start/end gaps
 			percent_identity = 100*identical_positions/(end - start + 1)
-			# print(percent_identity)
+			print('PERCENT IDENTITY:')
+			print(percent_identity)
 
-			if percent_identity > 25:
+			if percent_identity > 20:
 				if index == 0:
 					corrected_start = next_fragment_start
 					corrected_end = next_fragment_end
@@ -209,11 +216,11 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 						corrected_end = next_fragment_end + 1
 
 				next_fragment_entry = [corrected_start, corrected_end, next_fragment, peptides_list[index]]
-				yield next_fragment_entry
+
+				yield (next_fragment_entry, order)
 				# yield candidate_peptide
 				yield from extend_candidate_peptide(candidate_peptide = next_fragment_entry, scaffold = scaffold, 
-					protein_homolog = protein_homolog, direction = direction)
-				# print(downstream_fragments)
+					protein_homolog = protein_homolog, direction = direction, order = order)
 	# 		else:
 	# 			yield candidate_peptide
 	# else:
@@ -250,8 +257,9 @@ if __name__ == '__main__':
 		print("Executing tBLASTn search...")
 
 	# Run the tblastn search of the closest homolog proteins against the query genome
-	tblastn_output = tblastn(query=args['--proteins'], target=args['--genome'], wordsize=args['--tblastn_wordsize'], matrix=args['--tblastn_matrix'], 
-		max_evalue=args['--tblastn_max_evalue'], seg_filter=args['--tblastn_seg_filter'], threads = args['--tblastn_threads'], outprefix=args['--outprefix'])
+	tblastn_output = tblastn(query=args['--proteins'], target=args['--genome'], wordsize=args['--tblastn_wordsize'], 
+		matrix=args['--tblastn_matrix'], max_evalue=args['--tblastn_max_evalue'], seg_filter=args['--tblastn_seg_filter'], 
+		threads = args['--tblastn_threads'], outprefix=args['--outprefix'])
 
 	# The rest of steps are done protein homolog by protein homolog
 	with open(args['--proteins']) as proteins_fh:
@@ -285,14 +293,51 @@ if __name__ == '__main__':
 				print('SCAFFOLD: ' + scaffold)
 				scaffold_seq = get_scaffold_from_fasta(args['--genome'], scaffold)
 				# print(len(scaffold_seq))
-				for candidate_peptide in scaffold_candidate_peptides:
+				for candidate_peptide in scaffold_candidate_peptides: # here candidate peptides means seeds
+					reconstructed_peptides_downstream = []
+					reconstructed_peptides_upstream = [[]]
+					reconstructed_peptides_downstream.append(candidate_peptide)
+					peptide_index = scaffold_candidate_peptides.index(candidate_peptide)
+					candidate_peptide
 					print('CANDIDATE PEPTIDE SEED: ')
 					print(candidate_peptide)
-					print('RECONSTRUCTED PEPETIDE SHOWN BELOW:')
-					for peptide in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'upstream'):
-						print(peptide)
-					# print(downstream_fragments)
+					print('EXTENDING DOWNSTREAM OF THE GENOME:')
+					for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'downstream', order = 0):
+						# check the order and based on the length of the already built peptide duplicate or not
+						new_peptide = peptide_tuple[0]
+						order = peptide_tuple[1]
+						if len(reconstructed_peptides_downstream[-1]) == order:
+							reconstructed_peptides_downstream[-1].append(new_peptide)
+						elif len(reconstructed_peptides_downstream[-1]) == order + 1:
+							reconstructed_peptides_downstream.append(reconstructed_peptides_downstream[-1][0:-1] + [new_peptide])
 
+						# print(peptide_tuple)
+					print('EXTENDING UPSTREAM OF THE GENOME:')
+					for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'upstream', order = 0):
+						new_peptide = peptide_tuple[0]
+						order = peptide_tuple[1]
+						if len(reconstructed_peptides_upstream[-1]) == order - 1:
+							reconstructed_peptides_upstream[-1].insert(0, new_peptide)
+						elif len(reconstructed_peptides_upstream[-1]) == order:
+							reconstructed_peptides_upstream.append([new_peptide] + reconstructed_peptides_upstream[-1][1:])
+
+					# print(peptide_tuple)
+					reconstructed_peptides_complete = []
+					for upstream_peptide in reconstructed_peptides_upstream:
+						for downstream_peptide in reconstructed_peptides_downstream:
+							reconstructed_peptides_complete.append(upstream_peptide + downstream_peptide)
+
+					for index in range(0, len(reconstructed_peptides_complete)):
+						this_peptide = reconstructed_peptides_complete[index]
+						if this_peptide[0][0] > this_peptide[0][1]:
+							reconstructed_peptides_complete[index].reverse()
+				
+					# Write reconstructed peptides to a file (temporary, output will be formatted as GFF and FASTA later on)
+					# print(reconstructed_peptides)
+					with open(args['--outprefix'] + '.' + protein.id + '.reconstructed_peptides.txt', 'a') as fh:
+						fh.write(scaffold + '\n')
+						for peptide in reconstructed_peptides_complete:
+							fh.write(str(peptide) + '\n')
 
 	if args['--verbose']:
 		print("Execution finished.")
