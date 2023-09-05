@@ -90,9 +90,9 @@ def find_primary_seed_coordinates(tblastn_df, query_seq_id):
 	for index, row in tblastn_df_subset.iterrows():
 		newkey = row['sseqid']
 		if newkey in primary_seeds.keys():
-			primary_seeds[newkey].append([[row['sstart'], row['send']]])
+			primary_seeds[newkey].append([[row['sstart'], row['send'], row['qstart'], row['qend']]])
 		else:
-			primary_seeds[newkey] = [[[row['sstart'], row['send']]]]
+			primary_seeds[newkey] = [[[row['sstart'], row['send'], row['qstart'], row['qend']]]]
 		
 		# print(newkey)
 		# primary_seeds
@@ -120,7 +120,7 @@ def extract_fragments_from_fasta(file, fragments_list):
 					else:
 						fragment = sequence.seq[candidate_peptide[0][1]-1:candidate_peptide[0][0]] # idem
 						fragment = fragment.reverse_complement()
-					fragments_list[sequence.id][fragments_list[sequence.id].index(candidate_peptide)][0].append(fragment)
+					fragments_list[sequence.id][fragments_list[sequence.id].index(candidate_peptide)][0].insert(2, fragment)
 
 
 def extract_fragments_from_scaffold(scaffold, coordinates):
@@ -156,40 +156,40 @@ def translate_dna(fragments_list, frame = 0):
 	for scaffold, scaffold_hits in fragments_list.items():
 		for hit in scaffold_hits:
 			peptide = hit[0][2][frame:].translate()
-			fragments_list[scaffold][fragments_list[scaffold].index(hit)][0].append(peptide)
+			fragments_list[scaffold][fragments_list[scaffold].index(hit)][0].insert(3, peptide)
 
 
-def align_peptides(protein, fragments_list):
-	"""
-	Align a series of AA sequences to a protein sequence using EMBOSS Needle.
+# def align_peptides(protein, fragments_list):
+# 	"""
+# 	Align a series of AA sequences to a protein sequence using EMBOSS Needle.
 
-	Arguments:
-		protein: the protein to which the fragments are to be aligned, as Seq object.
-		fragments_list: a dictionary with scaffold names as keys and a list containing the peptide fragments to align as values.
+# 	Arguments:
+# 		protein: the protein to which the fragments are to be aligned, as Seq object.
+# 		fragments_list: a dictionary with scaffold names as keys and a list containing the peptide fragments to align as values.
 
-	Returns:
-		A list with the alignments.
-	"""
-	alignments_list = []
-	for scaffold, scaffold_hits in fragments_list.items():
-		# print(scaffold)
-		for hit in scaffold_hits:
-			# print(hit)
-			for candidate in hit:
-				# print(candidate)
-				# print(candidate[3])
-				# print(peptide)
-				with open("seqa.fa", 'w') as fh:
-					fh.write('>%s\n%s\n' % (protein.id, protein.seq))
-				with open('seqb.fa', 'w') as fh:
-					fh.write('>%s.%s.%s\n%s\n' % (scaffold, str(hit[0][0]), str(hit[0][1]), candidate[3]))
+# 	Returns:
+# 		A list with the alignments.
+# 	"""
+# 	alignments_list = []
+# 	for scaffold, scaffold_hits in fragments_list.items():
+# 		# print(scaffold)
+# 		for hit in scaffold_hits:
+# 			# print(hit)
+# 			for candidate in hit:
+# 				# print(candidate)
+# 				# print(candidate[3])
+# 				# print(peptide)
+# 				with open("seqa.fa", 'w') as fh:
+# 					fh.write('>%s\n%s\n' % (protein.id, protein.seq))
+# 				with open('seqb.fa', 'w') as fh:
+# 					fh.write('>%s.%s.%s\n%s\n' % (scaffold, str(hit[0][0]), str(hit[0][1]), candidate[3]))
 
-				os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta')
-				alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
-				alignments_list.append(alignment)
-	return(alignments_list)
+# 				os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta')
+# 				alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
+# 				alignments_list.append(alignment)
+# 	return(alignments_list)
 
-def align_peptides_simple(protein, peptide): # UPDATE THIS TO USE EMBOSS NEEDLE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+def align_peptides_simple(protein, peptide): # TEST LATER WITH EMBOSS NEEDLE
 	"""
 	Align 2 aminoacid sequences using EMBOSS Needle.
 
@@ -203,6 +203,12 @@ def align_peptides_simple(protein, peptide): # UPDATE THIS TO USE EMBOSS NEEDLE!
 		fh.write('>%s\n%s\n>fragment_peptide\n%s\n' % (protein.id, protein.seq, peptide))
 	os.system('clustalo --infile pairwise_seqs.fa > pairwise_seqs.clustalo.fa')
 	alignment = AlignIO.read('pairwise_seqs.clustalo.fa', 'fasta')
+	# with open("seqa.fa", 'w') as fh:
+	# 	fh.write('>%s\n%s\n' % (protein.id, protein.seq))
+	# with open("seqb.fa", "w") as fh:
+	# 	fh.write('>fragment_peptide\n%s\n' % peptide)
+	# os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta')
+	# alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
 	return(alignment)
 
 def get_scaffold_from_fasta(genome, scaffold):
@@ -268,6 +274,35 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 			# print('PEPTIDE FRAME: ' + str(index))
 			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index])
 			# print(alignment)
+
+			# find the start and end positions of the fragment relative to the homologous protein
+			# FOR NOW THIS DOES NOT ACCOUNT FOR GAPS IN THE ALIGNMENT IN THE PROTEIN HOMOLOG
+			homolog_start = alignment.aligned[0][0][0]
+			homolog_end = alignment.aligned[0][-1][1]
+
+			# check if current fragment aligned is contiguous with the previously aligned one
+			if direction == 'downstream': # if fragments go downstream of the genome lead strand
+				if candidate_peptide[0] < candidate_peptide[1]: # if the gene is in the lead strand
+					if candidate_peptide[1] - homolog_start + 1 <= 10: # in that case you expect
+						contiguous = True
+					else:
+						contiguous = False
+				else:
+					if homolog_end - candidate_peptide[0] + 1 <= 10:
+						contiguous = True
+					else:
+						contiguous = False
+			if direction == 'upstream':
+				if candidate_peptide[0] < candidate_peptide[1]:
+					if homolog_end - candidate_peptide[0] + 1 <= 10:
+						contiguous = True
+					else:
+						contiguous = False
+				else:
+					if candidate_peptide[1] - homolog_start + 1 <= 10:
+						contiguous = True
+					else:
+						contiguous = False
 
 			# find where the peptide fragment has the end gaps to not count these in the PID calculation
 			within_seq = 0
@@ -381,8 +416,8 @@ if __name__ == '__main__':
 			# print(primary_seeds)
 
 			# Align the peptide seed to the protein homolog
-			primary_seed_alignment_list = align_peptides(protein = protein, fragments_list=primary_seeds)
-			AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
+			# primary_seed_alignment_list = align_peptides(protein = protein, fragments_list=primary_seeds)
+			# AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
 
 			# Conduct seed extension
 			with open(args['--outprefix'] + '.' + protein.id + '.reconstructed_peptides.txt', 'w') as fh:
