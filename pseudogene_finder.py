@@ -202,6 +202,7 @@ def align_peptides_simple(protein, peptide): # TEST LATER WITH EMBOSS NEEDLE
 	with open("pairwise_seqs.fa", 'w') as fh:
 		fh.write('>%s\n%s\n>fragment_peptide\n%s\n' % (protein.id, protein.seq, peptide))
 	os.system('clustalo --infile pairwise_seqs.fa > pairwise_seqs.clustalo.fa')
+	os.system('cat pairwise_seqs.clustalo.fa >> pairwise_seqs.tmp.fa')
 	alignment = AlignIO.read('pairwise_seqs.clustalo.fa', 'fasta')
 	# with open("seqa.fa", 'w') as fh:
 	# 	fh.write('>%s\n%s\n' % (protein.id, protein.seq))
@@ -275,10 +276,26 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index])
 			# print(alignment)
 
-			# find the start and end positions of the fragment relative to the homologous protein
+			# find where the peptide fragment has the end gaps to not count these in the PID calculation
+			# also find the start and end coordinates relative to the homologous protein
 			# FOR NOW THIS DOES NOT ACCOUNT FOR GAPS IN THE ALIGNMENT IN THE PROTEIN HOMOLOG
-			homolog_start = alignment.aligned[0][0][0]
-			homolog_end = alignment.aligned[0][-1][1]
+			within_seq = 0
+			identical_positions = 0
+			position_in_homolog = 0
+			for position in range(0, alignment.get_alignment_length()):
+				if alignment[0, position] != '-':
+					position_in_homolog += 1
+				# print(alignment[0, position])
+				# print(alignment[1, position])
+				if alignment[1, position] != '-' and not within_seq:
+					start = position
+					homolog_start = position_in_homolog
+					within_seq = 1
+				if alignment[1, position] == '-' and alignment[1, position -1] != '-':
+					end = position - 1
+					homolog_end = position_in_homolog
+				if alignment[0, position] == alignment[1, position]:
+					identical_positions += 1
 
 			# check if current fragment aligned is contiguous with the previously aligned one
 			if direction == 'downstream': # if fragments go downstream of the genome lead strand
@@ -292,7 +309,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 						contiguous = True
 					else:
 						contiguous = False
-			if direction == 'upstream':
+			else:
 				if candidate_peptide[0] < candidate_peptide[1]:
 					if homolog_end - candidate_peptide[0] + 1 <= 10:
 						contiguous = True
@@ -304,30 +321,12 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 					else:
 						contiguous = False
 
-			# find where the peptide fragment has the end gaps to not count these in the PID calculation
-			within_seq = 0
-			identical_positions = 0
-			for position in range(0, alignment.get_alignment_length()):
-				# print(alignment[0, position])
-				# print(alignment[1, position])
-				if alignment[1, position] != '-' and not within_seq:
-					start = position
-					within_seq = 1
-				if alignment[1, position] == '-' and alignment[1, position -1] != '-':
-					end = position - 1
-				if alignment[0, position] == alignment[1, position]:
-					identical_positions += 1
-
-			# print(start)
-			# print(end)
-			# print(identical_positions)
-
 			# Compute PID without considering start/end gaps
 			percent_identity = 100*identical_positions/(end - start + 1)
 			# print('PERCENT IDENTITY:')
 			# print(percent_identity)
 
-			if percent_identity > 20:
+			if contiguous and percent_identity > 20:
 				if index == 0:
 					corrected_start = next_fragment_start
 					corrected_end = next_fragment_end
@@ -396,12 +395,20 @@ if __name__ == '__main__':
 	with open(args['--proteins']) as proteins_fh:
 		for protein in FastaIO.FastaIterator(proteins_fh):
 			protein_id = protein.id
+			if '[' in protein_id or ']' in protein_id or '=' in protein_id or '(' in protein_id or ')' in protein_id:
+				print("WARNING: protein name contains special characters. They have been replaced. Please make sure this is not a problem and if so change your protein IDs manually")
+				protein_id = protein_id.replace('[', '')
+				protein_id = protein_id.replace(']', '')
+				protein_id = protein_id.replace('(', '')
+				protein_id = protein_id.replace(')', '')
+				protein_id = protein_id.replace('=', '_')
+
 			
 			if args['--verbose']:
 				print("Processing results for protein %s" % protein_id)
 
 			# Get which positions in the query genome that match the protein homolog
-			primary_seeds = find_primary_seed_coordinates(tblastn_output, protein_id)
+			primary_seeds = find_primary_seed_coordinates(tblastn_output, protein.id)
 			
 			# print(primary_seeds)
 
@@ -420,7 +427,7 @@ if __name__ == '__main__':
 			# AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
 
 			# Conduct seed extension
-			with open(args['--outprefix'] + '.' + protein.id + '.reconstructed_peptides.txt', 'w') as fh:
+			with open(args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.txt', 'w') as fh:
 				for scaffold, scaffold_candidate_peptides in primary_seeds.items():
 					fh.write(scaffold + '\n')
 					print('SCAFFOLD: ' + scaffold)
@@ -435,6 +442,7 @@ if __name__ == '__main__':
 						print('CANDIDATE PEPTIDE SEED: ')
 						print(candidate_peptide)
 						print('EXTENDING DOWNSTREAM OF THE GENOME:')
+
 						for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'downstream', order = 0):
 							print('Yielded peptide tuple is: ')
 							print(peptide_tuple)
@@ -459,8 +467,9 @@ if __name__ == '__main__':
 								print(reconstructed_peptides_downstream)
 								print('upstream peptides now like this: ')
 								print(reconstructed_peptides_upstream)
-
+						os.system('mv pairwise_seqs.tmp.fa ' + protein_id + '_downstream.aln.fa')
 						print('EXTENDING UPSTREAM OF THE GENOME:')
+						
 						for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'upstream', order = 0):
 							print('Yielded peptide tuple is:')
 							print(peptide_tuple)
@@ -471,6 +480,8 @@ if __name__ == '__main__':
 								reconstructed_peptides_upstream[-1].append(new_peptide)
 							elif len(reconstructed_peptides_upstream[-1]) > order - 1:
 								reconstructed_peptides_upstream.append(reconstructed_peptides_upstream[-1][0:order - 1] + [new_peptide])
+						
+						os.system('mv pairwise_seqs.tmp.fa ' + protein_id + '_upstream.aln.fa')
 
 						# Remove initial seed from upstream part so as not to have it duplicated and turn around the peptide as it was built upside down
 						for index in range(0, len(reconstructed_peptides_upstream)):
