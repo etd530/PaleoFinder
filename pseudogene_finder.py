@@ -202,7 +202,7 @@ def align_peptides_simple(protein, peptide): # TEST LATER WITH EMBOSS NEEDLE
 	with open("pairwise_seqs.fa", 'w') as fh:
 		fh.write('>%s\n%s\n>fragment_peptide\n%s\n' % (protein.id, protein.seq, peptide))
 	os.system('clustalo --infile pairwise_seqs.fa > pairwise_seqs.clustalo.fa')
-	os.system('cat pairwise_seqs.clustalo.fa >> pairwise_seqs.tmp.fa')
+	os.system('cat pairwise_seqs.clustalo.fa >> alignments/pairwise_seqs.tmp.fa')
 	alignment = AlignIO.read('pairwise_seqs.clustalo.fa', 'fasta')
 	# with open("seqa.fa", 'w') as fh:
 	# 	fh.write('>%s\n%s\n' % (protein.id, protein.seq))
@@ -260,6 +260,8 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 			next_fragment_start = candidate_peptide[1] - 1
 			next_fragment_end = candidate_peptide[1] - 90
 
+	# check if the next fragment would be within the scaffold, and not outside (i.e. if the scaffold has at least 90bp left)
+	# UPDATE THIS TO CREATE A SHORTER FRAGMENT INSTEAD OF JUST NOT DOING ANYTHING WIHT THE SCAFFOLD EXTREMES
 	if 0 < next_fragment_start <= len(scaffold) and 0 < next_fragment_end <= len(scaffold) and next:
 		next_fragment = extract_fragments_from_scaffold(scaffold, [next_fragment_start, next_fragment_end]) # remember this already does reverse complement if needed
 		# print(next_fragment)
@@ -293,30 +295,35 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 					within_seq = 1
 				if alignment[1, position] == '-' and alignment[1, position -1] != '-':
 					end = position - 1
-					homolog_end = position_in_homolog
+					homolog_end = position_in_homolog - 1
 				if alignment[0, position] == alignment[1, position]:
 					identical_positions += 1
 
 			# check if current fragment aligned is contiguous with the previously aligned one
+			# print(candidate_peptide[4])
+			# print(candidate_peptide[5])
+			# print(homolog_start)
+			# print(homolog_end)
 			if direction == 'downstream': # if fragments go downstream of the genome lead strand
 				if candidate_peptide[0] < candidate_peptide[1]: # if the gene is in the lead strand
-					if candidate_peptide[1] - homolog_start + 1 <= 10: # in that case you expect
+			# FIX THIS PART BELOW; NOTE THAT HERE IS PEPTIDE COORDINATES AND YOU ALWAYS HAVE THEM FROM N-TERMINAL TO C-TERMINAL I.E. FROM LEFT TO RIGHT UNLIKE IN DNA
+					if candidate_peptide[5] - homolog_start + 1 <= 10:
 						contiguous = True
 					else:
 						contiguous = False
 				else:
-					if homolog_end - candidate_peptide[0] + 1 <= 10:
+					if homolog_end - candidate_peptide[4] + 1 <= 10:
 						contiguous = True
 					else:
 						contiguous = False
 			else:
 				if candidate_peptide[0] < candidate_peptide[1]:
-					if homolog_end - candidate_peptide[0] + 1 <= 10:
+					if homolog_end - candidate_peptide[4] + 1 <= 10:
 						contiguous = True
 					else:
 						contiguous = False
 				else:
-					if candidate_peptide[1] - homolog_start + 1 <= 10:
+					if candidate_peptide[5] - homolog_start + 1 <= 10:
 						contiguous = True
 					else:
 						contiguous = False
@@ -345,7 +352,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 						corrected_start = next_fragment_start - 2
 						corrected_end = next_fragment_end + 1
 
-				next_fragment_entry = [corrected_start, corrected_end, next_fragment, peptides_list[index]]
+				next_fragment_entry = [corrected_start, corrected_end, next_fragment, peptides_list[index], homolog_start, homolog_end]
 
 				yield (next_fragment_entry, order)
 				# yield candidate_peptide
@@ -353,8 +360,9 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 					protein_homolog = protein_homolog, direction = direction, order = order)
 	# 		else:
 	# 			yield candidate_peptide
-	# else:
-	# 	yield candidate_peptide
+	else:
+		print('INFO: Skipping this peptide, it would be outside the bounds of the scaffold. If this happened with the seed, there will be no alignment output.')
+		# yield 'out_of_bounds'
 
 
 if __name__ == '__main__':
@@ -427,6 +435,7 @@ if __name__ == '__main__':
 			# AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
 
 			# Conduct seed extension
+			os.system('mkdir -p alignments')
 			with open(args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.txt', 'w') as fh:
 				for scaffold, scaffold_candidate_peptides in primary_seeds.items():
 					fh.write(scaffold + '\n')
@@ -467,7 +476,7 @@ if __name__ == '__main__':
 								print(reconstructed_peptides_downstream)
 								print('upstream peptides now like this: ')
 								print(reconstructed_peptides_upstream)
-						os.system('mv pairwise_seqs.tmp.fa ' + protein_id + '_downstream.aln.fa')
+						os.system('mv alignments/pairwise_seqs.tmp.fa alignments/' + protein_id + '_' + scaffold + '_candidate_peptide_' + str(peptide_index) + '_downstream.aln.fa')
 						print('EXTENDING UPSTREAM OF THE GENOME:')
 						
 						for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'upstream', order = 0):
@@ -481,7 +490,7 @@ if __name__ == '__main__':
 							elif len(reconstructed_peptides_upstream[-1]) > order - 1:
 								reconstructed_peptides_upstream.append(reconstructed_peptides_upstream[-1][0:order - 1] + [new_peptide])
 						
-						os.system('mv pairwise_seqs.tmp.fa ' + protein_id + '_upstream.aln.fa')
+						os.system('mv alignments/pairwise_seqs.tmp.fa alignments/' + protein_id + '_' + scaffold + '_candidate_peptide_' + str(peptide_index) + '_upstream.aln.fa')
 
 						# Remove initial seed from upstream part so as not to have it duplicated and turn around the peptide as it was built upside down
 						for index in range(0, len(reconstructed_peptides_upstream)):
@@ -512,7 +521,7 @@ if __name__ == '__main__':
 						# REMOVE OUTPUT FILE; CHANGE THIS SHIT SO YOU DON'T APPEND AND RUN AGAIN TO SEE IF IT IS FIXED
 						for peptide in reconstructed_peptides_complete:
 							fh.write(str(peptide) + '\n')
-
+	os.system('rm pairwise_seqs.fa && rm pairwise_seqs.clustalo.fa')
 	if args['--verbose']:
 		print("Execution finished.")
 
