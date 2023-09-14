@@ -12,7 +12,7 @@ usage: pseudogene_finder.py --proteins=FASTA --genome=FASTA [--tblastn_wordsize=
         --tblastn_max_evalue FLT                  Maximum e-value to keep a hit in the initial tBLASTn search [default: 50].
         --tblastn_seg_filter STR                  Parameters for the SEG masking of low complexity regions in the query proteins [default: "10 1.0 1.5"].
         --tblastn_threads INT                     Number of threads to use to run the initial tBLASTN search [default: 10].
-        --o, --outprefix STR                      Prefix to use for output files [default: pseudogene_finder].
+        -o, --outprefix STR                       Prefix to use for output files [default: pseudogene_finder].
         -v, --verbose                             Print the progressions of the program to the terminal (Standard Error).
         -h, --help                                Show this help message and exit.
 """
@@ -307,23 +307,23 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 			if direction == 'downstream': # if fragments go downstream of the genome lead strand
 				if candidate_peptide[0] < candidate_peptide[1]: # if the gene is in the lead strand
 			# FIX THIS PART BELOW; NOTE THAT HERE IS PEPTIDE COORDINATES AND YOU ALWAYS HAVE THEM FROM N-TERMINAL TO C-TERMINAL I.E. FROM LEFT TO RIGHT UNLIKE IN DNA
-					if candidate_peptide[5] - homolog_start + 1 <= 10:
+					if homolog_start - candidate_peptide[5] + 1 <= 10:
 						contiguous = True
 					else:
 						contiguous = False
 				else:
-					if homolog_end - candidate_peptide[4] + 1 <= 10:
+					if candidate_peptide[4] - homolog_end + 1 <= 10:
 						contiguous = True
 					else:
 						contiguous = False
 			else:
 				if candidate_peptide[0] < candidate_peptide[1]:
-					if homolog_end - candidate_peptide[4] + 1 <= 10:
+					if candidate_peptide[4] - homolog_end + 1 <= 10:
 						contiguous = True
 					else:
 						contiguous = False
 				else:
-					if candidate_peptide[5] - homolog_start + 1 <= 10:
+					if homolog_start - candidate_peptide[5] + 1 <= 10:
 						contiguous = True
 					else:
 						contiguous = False
@@ -366,7 +366,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 
 
 if __name__ == '__main__':
-	__version__ = "0.5.1"
+	__version__ = "0.5.2"
 	
 	#### PARSE ARGS ####
 	args = docopt(__doc__)
