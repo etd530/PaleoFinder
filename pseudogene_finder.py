@@ -189,9 +189,9 @@ def translate_dna(fragments_list, frame = 0):
 # 				alignments_list.append(alignment)
 # 	return(alignments_list)
 
-def align_peptides_simple(protein, peptide): # TEST LATER WITH EMBOSS NEEDLE
+def align_peptides_simple(protein, peptide):
 	"""
-	Align 2 aminoacid sequences using EMBOSS Needle.
+	Align 2 aminoacid sequences using the specified program (either EMBOSS Needle for global alignment of lalign36 for non-overlapping local alignments).
 
 	Arguments:
 		protein: one of the AA sequences.
@@ -199,18 +199,38 @@ def align_peptides_simple(protein, peptide): # TEST LATER WITH EMBOSS NEEDLE
 	Returns:
 		An alignment object.
 	"""
-	with open("pairwise_seqs.fa", 'w') as fh:
-		fh.write('>%s\n%s\n>fragment_peptide\n%s\n' % (protein.id, protein.seq, peptide))
-	os.system('clustalo --infile pairwise_seqs.fa > pairwise_seqs.clustalo.fa')
-	os.system('cat pairwise_seqs.clustalo.fa >> alignments/pairwise_seqs.tmp.fa')
-	alignment = AlignIO.read('pairwise_seqs.clustalo.fa', 'fasta')
-	# with open("seqa.fa", 'w') as fh:
-	# 	fh.write('>%s\n%s\n' % (protein.id, protein.seq))
-	# with open("seqb.fa", "w") as fh:
-	# 	fh.write('>fragment_peptide\n%s\n' % peptide)
-	# os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta')
-	# alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
-	return(alignment)
+	# Check peptide size, if it is 30AA do global alignment, else it should be 100AA, do local alignment
+	print(peptide)
+	if len(peptide) == 30:
+		# Align with EMBOSS-Needle
+		with open("seqa.fa", 'w') as fh:
+			fh.write('>%s\n%s\n' % (protein.id, protein.seq))
+		with open("seqb.fa", "w") as fh:
+			fh.write('>fragment_peptide\n%s\n' % peptide)
+		os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta -auto Y')
+		os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
+		alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
+		# Align with Clustal Omega (Needle works best for our case for now)
+		# with open("input_seqs.fa", 'w') as fh:
+		# 	fh.write('>%s\n%s\n>fragment_peptide\n%s\n' % (protein.id, protein.seq, peptide))
+		# os.system('clustalo --infile input_seqs.fa > pairwise_seqs.fa')
+		# os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
+		# alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
+	elif len(peptide) == 100:
+		# Align with lalign36
+		with open("seqa.fa", 'w') as fh:
+			fh.write('>%s\n%s\n' % (protein.id, protein.seq))
+		with open("seqb.fa", "w") as fh:
+			fh.write('>fragment_peptide\n%s\n' % peptide)
+		# NOTE: THIS LINE WILL NOT WORK WITHOUT USERS ADDING THE PROGRAM TO THE PATH, NEED TO SEE HOW TO FIX THIS
+		os.system('lalign36 -O lalign.aln -m 3 -3 -C 20 seqa.fa seqb.fa') # WILL NEED TO PARSE THE ALIGNMENT OUT OF HERE
+		os.system('''num1=`egrep -c "^>" lalign.aln`; num2=2; if [ $num1 -eq $num2 ]; then cat lalign.aln | head -n 23 | tail -n 4 > 
+			pairwise_seqs.fa && seqname=`head -n1 seqa.fa` && sed -Ei "1s/.*/$'"{"'seqname}/" pairwise_seqs.fa && seqname=`head -n1 seqb.fa` 
+			&& sed -Ei "3s/.*/$'"{"'seqname}/" pairwise_seqs.fa; else rm lalign.aln && rm pairwise_seqs.fa; fi''')
+		os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
+	if os.path.isfile('pairwise_seqs.fa'):
+		alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
+		return(alignment)
 
 def get_scaffold_from_fasta(genome, scaffold):
 	"""
@@ -228,7 +248,7 @@ def get_scaffold_from_fasta(genome, scaffold):
 			if sequence.id == scaffold:
 				return(sequence.seq)
 
-def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direction = 'downstream', order = 0):
+def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direction = 'downstream', order = 0, fragment_size = 90, do_local = True):
 	"""
 	Given a short AA sequence, extend it based on similarity of subsequent fragments from the genome of origin to a reference protein sequence.
 
@@ -238,29 +258,32 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 		protein_homolog: the protein to which compare subsequent fragments of the protein.
 		direction: string indicating whether the peptide must be extended upstream or downstream on the scaffold.
 		order: number indicating the number of iterations, used internally to recover the order of the peptides.
+		fragment_size: the size of the fragments to use for the successive alignments to extend the peptide.
+		do_local: whether a local alignment of a longer fragment should be attempted when all 90bp fragments align poorly.
 	Yields:
 		a AA fragment each time that one passes the established thresholds of similarity and contiguity.
 	"""
+
 	order += 1
 	# print(candidate_peptide)
 	# Get coordinates of next fragment to evaluate (1-based indexing since these are BLAST coordinates)
 	if direction == 'downstream':
 		if candidate_peptide[0] < candidate_peptide[1]:
 			next_fragment_start = candidate_peptide[1] + 1
-			next_fragment_end = candidate_peptide[1] + 90
+			next_fragment_end = candidate_peptide[1] + fragment_size
 		else:
-			next_fragment_start = candidate_peptide[0] + 90
+			next_fragment_start = candidate_peptide[0] + fragment_size
 			next_fragment_end = candidate_peptide[0] + 1
 
 	if direction == 'upstream':
 		if candidate_peptide[0] < candidate_peptide[1]:
-			next_fragment_start = candidate_peptide[0] - 90
+			next_fragment_start = candidate_peptide[0] - fragment_size
 			next_fragment_end = candidate_peptide[0] -1
 		else:
 			next_fragment_start = candidate_peptide[1] - 1
-			next_fragment_end = candidate_peptide[1] - 90
+			next_fragment_end = candidate_peptide[1] - fragment_size
 
-	# check if the next fragment would be within the scaffold, and not outside (i.e. if the scaffold has at least 90bp left)
+	# check if the next fragment would be within the scaffold, and not outside (i.e. if the scaffold has at least 90/300bp left)
 	# UPDATE THIS TO CREATE A SHORTER FRAGMENT INSTEAD OF JUST NOT DOING ANYTHING WIHT THE SCAFFOLD EXTREMES
 	if 0 < next_fragment_start <= len(scaffold) and 0 < next_fragment_end <= len(scaffold) and next:
 		next_fragment = extract_fragments_from_scaffold(scaffold, [next_fragment_start, next_fragment_end]) # remember this already does reverse complement if needed
@@ -307,23 +330,23 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 			if direction == 'downstream': # if fragments go downstream of the genome lead strand
 				if candidate_peptide[0] < candidate_peptide[1]: # if the gene is in the lead strand
 			# FIX THIS PART BELOW; NOTE THAT HERE IS PEPTIDE COORDINATES AND YOU ALWAYS HAVE THEM FROM N-TERMINAL TO C-TERMINAL I.E. FROM LEFT TO RIGHT UNLIKE IN DNA
-					if homolog_start - candidate_peptide[5] + 1 <= 10:
+					if 0 < homolog_start - candidate_peptide[5] <= 10:
 						contiguous = True
 					else:
 						contiguous = False
 				else:
-					if candidate_peptide[4] - homolog_end + 1 <= 10:
+					if 0 < candidate_peptide[4] - homolog_end <= 10:
 						contiguous = True
 					else:
 						contiguous = False
 			else:
 				if candidate_peptide[0] < candidate_peptide[1]:
-					if candidate_peptide[4] - homolog_end + 1 <= 10:
+					if 0 < candidate_peptide[4] - homolog_end <= 10:
 						contiguous = True
 					else:
 						contiguous = False
 				else:
-					if homolog_start - candidate_peptide[5] + 1 <= 10:
+					if 0 < homolog_start - candidate_peptide[5] <= 10:
 						contiguous = True
 					else:
 						contiguous = False
@@ -333,7 +356,9 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 			# print('PERCENT IDENTITY:')
 			# print(percent_identity)
 
+			# If the fragment passes the thresholds, get the final coordinates and create the fragment entry for the list
 			if contiguous and percent_identity > 20:
+				# First we correct the coordinates for the reading frame
 				if index == 0:
 					corrected_start = next_fragment_start
 					corrected_end = next_fragment_end
@@ -351,15 +376,27 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 					else:
 						corrected_start = next_fragment_start - 2
 						corrected_end = next_fragment_end + 1
-
+				
+				# then if fragment size is 300, it means we did a local alignment, so we need the coordinates for the part that got aligned
+				if fragment_size == 300:
+					aligned_region = alignment[1].seq # NOT SURE IF THIS WILL REMOVE THE GAPS, LET'S SEE
+					aligned_region_start = peptides_list[index].find(aligned_region) + 1 # add one since we are doing 1-based indexing
+					aligned_region_end = aligned_region_start + len(aligned_region) - 1
+					corrected_start = corrected_start + aligned_region_start - 1
+					corrected_end = corrected_end + aligned_region_end - 1
+				
+				# then build the list with the attributes of the fragment to yield
 				next_fragment_entry = [corrected_start, corrected_end, next_fragment, peptides_list[index], homolog_start, homolog_end]
-
 				yield (next_fragment_entry, order)
-				# yield candidate_peptide
+				
+				# lastly, call the next iteration 
 				yield from extend_candidate_peptide(candidate_peptide = next_fragment_entry, scaffold = scaffold, 
-					protein_homolog = protein_homolog, direction = direction, order = order)
-	# 		else:
-	# 			yield candidate_peptide
+					protein_homolog = protein_homolog, direction = direction, order = order, do_local = do_local)
+
+	 		# If it does not pass the thresholds AND we have NOT done local alignment yet, start the 300bp local alignment step
+			elif do_local:
+				yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
+					protein_homolog = protein_homolog, direction = direction, order = order, fragment_size = 300, do_local = False)
 	else:
 		print('INFO: Skipping this peptide, it would be outside the bounds of the scaffold. If this happened with the seed, there will be no alignment output.')
 		# yield 'out_of_bounds'
@@ -521,7 +558,7 @@ if __name__ == '__main__':
 						# REMOVE OUTPUT FILE; CHANGE THIS SHIT SO YOU DON'T APPEND AND RUN AGAIN TO SEE IF IT IS FIXED
 						for peptide in reconstructed_peptides_complete:
 							fh.write(str(peptide) + '\n')
-	os.system('rm pairwise_seqs.fa && rm pairwise_seqs.clustalo.fa')
+	os.system('rm pairwise_seqs.fa && rm pairwise_seqs.fa')
 	if args['--verbose']:
 		print("Execution finished.")
 
