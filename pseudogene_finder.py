@@ -201,14 +201,14 @@ def align_peptides_simple(protein, peptide):
 	"""
 	# Check peptide size, if it is 30AA do global alignment, else it should be 100AA, do local alignment
 	print(peptide)
-	if len(peptide) == 30:
+	if len(peptide) == 30 or len(peptide) == 29: #putting just if len() < 31 should do, but I want to make sure there is no unforeseen stuff; change later?
 		# Align with EMBOSS-Needle
 		with open("seqa.fa", 'w') as fh:
 			fh.write('>%s\n%s\n' % (protein.id, protein.seq))
 		with open("seqb.fa", "w") as fh:
 			fh.write('>fragment_peptide\n%s\n' % peptide)
 		os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta -auto Y')
-		os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
+		status = os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
 		alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
 		# Align with Clustal Omega (Needle works best for our case for now)
 		# with open("input_seqs.fa", 'w') as fh:
@@ -216,19 +216,23 @@ def align_peptides_simple(protein, peptide):
 		# os.system('clustalo --infile input_seqs.fa > pairwise_seqs.fa')
 		# os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
 		# alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
-	elif len(peptide) == 100:
+	elif len(peptide) == 100 or len(peptide) == 99: #same as above, putting just len()<101 should do
 		# Align with lalign36
 		with open("seqa.fa", 'w') as fh:
 			fh.write('>%s\n%s\n' % (protein.id, protein.seq))
 		with open("seqb.fa", "w") as fh:
 			fh.write('>fragment_peptide\n%s\n' % peptide)
 		# NOTE: THIS LINE WILL NOT WORK WITHOUT USERS ADDING THE PROGRAM TO THE PATH, NEED TO SEE HOW TO FIX THIS
-		os.system('lalign36 -O lalign.aln -m 3 -3 -C 20 seqa.fa seqb.fa') # WILL NEED TO PARSE THE ALIGNMENT OUT OF HERE
-		os.system('''num1=`egrep -c "^>" lalign.aln`; num2=2; if [ $num1 -eq $num2 ]; then cat lalign.aln | head -n 23 | tail -n 4 > 
-			pairwise_seqs.fa && seqname=`head -n1 seqa.fa` && sed -Ei "1s/.*/$'"{"'seqname}/" pairwise_seqs.fa && seqname=`head -n1 seqb.fa` 
-			&& sed -Ei "3s/.*/$'"{"'seqname}/" pairwise_seqs.fa; else rm lalign.aln && rm pairwise_seqs.fa; fi''')
-		os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
-	if os.path.isfile('pairwise_seqs.fa'):
+		os.system('lalign36 -O lalign.aln -m 3 -3 -C 20 seqa.fa seqb.fa')
+		status = os.system('num1=`egrep -c "^>" lalign.aln`; num2=2; [ $num1 -eq $num2 ]')
+		if not status:
+			os.system('''cat lalign.aln | head -n -10 | tail -n +20 > pairwise_seqs.fa && \
+				seqindex1=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | head -n1` && \
+				seqindex2=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | tail -n1` && seqname=`head -n1 seqa.fa` && \
+				sed -Ei "${seqindex1}s/.*/${seqname}/" pairwise_seqs.fa && seqname=`head -n1 seqb.fa` && \
+				sed -Ei "${seqindex2}s/.*/${seqname}/" pairwise_seqs.fa && cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa''')
+	# if os.path.isfile('pairwise_seqs.fa'):
+	if not status:
 		alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
 		return(alignment)
 
@@ -301,105 +305,112 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index])
 			# print(alignment)
 
-			# find where the peptide fragment has the end gaps to not count these in the PID calculation
-			# also find the start and end coordinates relative to the homologous protein
-			# FOR NOW THIS DOES NOT ACCOUNT FOR GAPS IN THE ALIGNMENT IN THE PROTEIN HOMOLOG
-			within_seq = 0
-			identical_positions = 0
-			position_in_homolog = 0
-			for position in range(0, alignment.get_alignment_length()):
-				if alignment[0, position] != '-':
-					position_in_homolog += 1
-				# print(alignment[0, position])
-				# print(alignment[1, position])
-				if alignment[1, position] != '-' and not within_seq:
-					start = position
-					homolog_start = position_in_homolog
-					within_seq = 1
-				if alignment[1, position] == '-' and alignment[1, position -1] != '-':
-					end = position - 1
-					homolog_end = position_in_homolog - 1
-				if alignment[0, position] == alignment[1, position]:
-					identical_positions += 1
+			# make sure you actually got an alignemnt before continuing (local alignment may not return anything)
+			if alignment is not None:
+				# find where the peptide fragment has the end gaps to not count these in the PID calculation
+				# also find the start and end coordinates relative to the homologous protein
+				# FOR NOW THIS DOES NOT ACCOUNT FOR GAPS IN THE ALIGNMENT IN THE PROTEIN HOMOLOG
+				within_seq = 0
+				identical_positions = 0
+				position_in_homolog = 0
+				end_found = False
+				for position in range(0, alignment.get_alignment_length()):
+					if alignment[0, position] != '-':
+						position_in_homolog += 1
+					# print(alignment[0, position])
+					# print(alignment[1, position])
+					if alignment[1, position] != '-' and not within_seq:
+						start = position
+						homolog_start = position_in_homolog
+						within_seq = 1
+					if alignment[1, position] == '-' and alignment[1, position -1] != '-': # this only founds the end if there is an end gap!
+						end = position - 1
+						end_found = True
+						homolog_end = position_in_homolog - 1
+					if alignment[0, position] == alignment[1, position]:
+						identical_positions += 1
+				# after checking all positions, if end has not been found because there is no end gap, it means the end is the end of the actual alignment
+				if not end_found:
+					end = alignment.get_alignment_length()
+					homolog_end = position_in_homolog
 
-			# check if current fragment aligned is contiguous with the previously aligned one
-			# print(candidate_peptide[4])
-			# print(candidate_peptide[5])
-			# print(homolog_start)
-			# print(homolog_end)
-			if direction == 'downstream': # if fragments go downstream of the genome lead strand
-				if candidate_peptide[0] < candidate_peptide[1]: # if the gene is in the lead strand
-			# FIX THIS PART BELOW; NOTE THAT HERE IS PEPTIDE COORDINATES AND YOU ALWAYS HAVE THEM FROM N-TERMINAL TO C-TERMINAL I.E. FROM LEFT TO RIGHT UNLIKE IN DNA
-					if 0 < homolog_start - candidate_peptide[5] <= 10:
-						contiguous = True
+				# check if current fragment aligned is contiguous with the previously aligned one
+				# print(candidate_peptide[4])
+				# print(candidate_peptide[5])
+				# print(homolog_start)
+				# print(homolog_end)
+				if direction == 'downstream': # if fragments go downstream of the genome lead strand
+					if candidate_peptide[0] < candidate_peptide[1]: # if the gene is in the lead strand
+				# FIX THIS PART BELOW; NOTE THAT HERE IS PEPTIDE COORDINATES AND YOU ALWAYS HAVE THEM FROM N-TERMINAL TO C-TERMINAL I.E. FROM LEFT TO RIGHT UNLIKE IN DNA
+						if 0 < homolog_start - candidate_peptide[5] <= 10:
+							contiguous = True
+						else:
+							contiguous = False
 					else:
-						contiguous = False
+						if 0 < candidate_peptide[4] - homolog_end <= 10:
+							contiguous = True
+						else:
+							contiguous = False
 				else:
-					if 0 < candidate_peptide[4] - homolog_end <= 10:
-						contiguous = True
+					if candidate_peptide[0] < candidate_peptide[1]:
+						if 0 < candidate_peptide[4] - homolog_end <= 10:
+							contiguous = True
+						else:
+							contiguous = False
 					else:
-						contiguous = False
-			else:
-				if candidate_peptide[0] < candidate_peptide[1]:
-					if 0 < candidate_peptide[4] - homolog_end <= 10:
-						contiguous = True
-					else:
-						contiguous = False
-				else:
-					if 0 < homolog_start - candidate_peptide[5] <= 10:
-						contiguous = True
-					else:
-						contiguous = False
+						if 0 < homolog_start - candidate_peptide[5] <= 10:
+							contiguous = True
+						else:
+							contiguous = False
 
-			# Compute PID without considering start/end gaps
-			percent_identity = 100*identical_positions/(end - start + 1)
-			# print('PERCENT IDENTITY:')
-			# print(percent_identity)
+				# Compute PID without considering start/end gaps
+				percent_identity = 100*identical_positions/(end - start + 1)
+				# print('PERCENT IDENTITY:')
+				# print(percent_identity)
 
-			# If the fragment passes the thresholds, get the final coordinates and create the fragment entry for the list
-			if contiguous and percent_identity > 20:
-				# First we correct the coordinates for the reading frame
-				if index == 0:
-					corrected_start = next_fragment_start
-					corrected_end = next_fragment_end
-				elif index == 1:
-					if next_fragment_start < next_fragment_end:
-						corrected_start = next_fragment_start + 1
-						corrected_end = next_fragment_end - 2
-					else:
-						corrected_start = next_fragment_start - 1
-						corrected_end = next_fragment_end +2
-				elif index == 2:
-					if next_fragment_start < next_fragment_end:
-						corrected_start = next_fragment_start + 2
-						corrected_end = next_fragment_end - 1
-					else:
-						corrected_start = next_fragment_start - 2
-						corrected_end = next_fragment_end + 1
-				
-				# then if fragment size is 300, it means we did a local alignment, so we need the coordinates for the part that got aligned
-				if fragment_size == 300:
-					aligned_region = alignment[1].seq # NOT SURE IF THIS WILL REMOVE THE GAPS, LET'S SEE
-					aligned_region_start = peptides_list[index].find(aligned_region) + 1 # add one since we are doing 1-based indexing
-					aligned_region_end = aligned_region_start + len(aligned_region) - 1
-					corrected_start = corrected_start + aligned_region_start - 1
-					corrected_end = corrected_end + aligned_region_end - 1
-				
-				# then build the list with the attributes of the fragment to yield
-				next_fragment_entry = [corrected_start, corrected_end, next_fragment, peptides_list[index], homolog_start, homolog_end]
-				yield (next_fragment_entry, order)
-				
-				# lastly, call the next iteration 
-				yield from extend_candidate_peptide(candidate_peptide = next_fragment_entry, scaffold = scaffold, 
-					protein_homolog = protein_homolog, direction = direction, order = order, do_local = do_local)
+				# If the fragment passes the thresholds, get the final coordinates and create the fragment entry for the list
+				if contiguous and percent_identity > 20:
+					# First we correct the coordinates for the reading frame
+					if index == 0:
+						corrected_start = next_fragment_start
+						corrected_end = next_fragment_end
+					elif index == 1:
+						if next_fragment_start < next_fragment_end:
+							corrected_start = next_fragment_start + 1
+							corrected_end = next_fragment_end - 2
+						else:
+							corrected_start = next_fragment_start - 1
+							corrected_end = next_fragment_end +2
+					elif index == 2:
+						if next_fragment_start < next_fragment_end:
+							corrected_start = next_fragment_start + 2
+							corrected_end = next_fragment_end - 1
+						else:
+							corrected_start = next_fragment_start - 2
+							corrected_end = next_fragment_end + 1
+					
+					# then if fragment size is 300, it means we did a local alignment, so we need the coordinates for the part that got aligned
+					if fragment_size == 300:
+						aligned_region = alignment[1].seq # NOT SURE IF THIS WILL REMOVE THE GAPS, LET'S SEE
+						aligned_region_start = peptides_list[index].find(aligned_region) + 1 # add one since we are doing 1-based indexing
+						aligned_region_end = aligned_region_start + len(aligned_region) - 1
+						corrected_start = corrected_start + aligned_region_start - 1
+						corrected_end = corrected_end + aligned_region_end - 1
+					
+					# then build the list with the attributes of the fragment to yield
+					next_fragment_entry = [corrected_start, corrected_end, next_fragment, peptides_list[index], homolog_start, homolog_end]
+					yield (next_fragment_entry, order)
+					
+					# lastly, call the next iteration 
+					yield from extend_candidate_peptide(candidate_peptide = next_fragment_entry, scaffold = scaffold, 
+						protein_homolog = protein_homolog, direction = direction, order = order, do_local = do_local)
 
-	 		# If it does not pass the thresholds AND we have NOT done local alignment yet, start the 300bp local alignment step
-			elif do_local:
-				yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
-					protein_homolog = protein_homolog, direction = direction, order = order, fragment_size = 300, do_local = False)
+		 		# If it does not pass the thresholds AND we have NOT done local alignment yet, start the 300bp local alignment step
+				elif do_local:
+					yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
+						protein_homolog = protein_homolog, direction = direction, order = order, fragment_size = 300, do_local = False)
 	else:
 		print('INFO: Skipping this peptide, it would be outside the bounds of the scaffold. If this happened with the seed, there will be no alignment output.')
-		# yield 'out_of_bounds'
 
 
 if __name__ == '__main__':
@@ -558,7 +569,7 @@ if __name__ == '__main__':
 						# REMOVE OUTPUT FILE; CHANGE THIS SHIT SO YOU DON'T APPEND AND RUN AGAIN TO SEE IF IT IS FIXED
 						for peptide in reconstructed_peptides_complete:
 							fh.write(str(peptide) + '\n')
-	os.system('rm pairwise_seqs.fa && rm pairwise_seqs.fa')
+	os.system('rm *.fa && rm lalign.aln')
 	if args['--verbose']:
 		print("Execution finished.")
 
