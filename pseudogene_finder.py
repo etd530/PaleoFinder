@@ -200,7 +200,7 @@ def align_peptides_simple(protein, peptide):
 		An alignment object.
 	"""
 	# Check peptide size, if it is 30AA do global alignment, else it should be 100AA, do local alignment
-	print(peptide)
+	# print(peptide)
 	if len(peptide) == 30 or len(peptide) == 29: #putting just if len() < 31 should do, but I want to make sure there is no unforeseen stuff; change later?
 		# Align with EMBOSS-Needle
 		with open("seqa.fa", 'w') as fh:
@@ -223,7 +223,7 @@ def align_peptides_simple(protein, peptide):
 		with open("seqb.fa", "w") as fh:
 			fh.write('>fragment_peptide\n%s\n' % peptide)
 		# NOTE: THIS LINE WILL NOT WORK WITHOUT USERS ADDING THE PROGRAM TO THE PATH, NEED TO SEE HOW TO FIX THIS
-		os.system('lalign36 -O lalign.aln -m 3 -3 -C 20 seqa.fa seqb.fa')
+		os.system('lalign36 -O lalign.aln -m 3 -3 -C 20 -Q -q seqa.fa seqb.fa > lalign.log')
 		status = os.system('num1=`egrep -c "^>" lalign.aln`; num2=2; [ $num1 -eq $num2 ]')
 		if not status:
 			os.system('''cat lalign.aln | head -n -10 | tail -n +20 > pairwise_seqs.fa && \
@@ -252,7 +252,7 @@ def get_scaffold_from_fasta(genome, scaffold):
 			if sequence.id == scaffold:
 				return(sequence.seq)
 
-def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direction = 'downstream', order = 0, fragment_size = 90, do_local = True):
+def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direction = 'downstream', order = 0, fragment_size = 90, do_local = True, reading_frame = 'All'):
 	"""
 	Given a short AA sequence, extend it based on similarity of subsequent fragments from the genome of origin to a reference protein sequence.
 
@@ -269,7 +269,11 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 	"""
 
 	order += 1
-	# print(candidate_peptide)
+	print('INITIAL GENOMIC COORDINATES:')
+	print(candidate_peptide[0])
+	print(candidate_peptide[1])
+	print('FRAGMENT SIZE:')
+	print(fragment_size)
 	# Get coordinates of next fragment to evaluate (1-based indexing since these are BLAST coordinates)
 	if direction == 'downstream':
 		if candidate_peptide[0] < candidate_peptide[1]:
@@ -286,22 +290,28 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 		else:
 			next_fragment_start = candidate_peptide[1] - 1
 			next_fragment_end = candidate_peptide[1] - fragment_size
-
+	print('INITIAL COORDINATES OF NEXT FRAGMENT:')
+	print(next_fragment_start)
+	print(next_fragment_end)
 	# check if the next fragment would be within the scaffold, and not outside (i.e. if the scaffold has at least 90/300bp left)
 	# UPDATE THIS TO CREATE A SHORTER FRAGMENT INSTEAD OF JUST NOT DOING ANYTHING WIHT THE SCAFFOLD EXTREMES
 	if 0 < next_fragment_start <= len(scaffold) and 0 < next_fragment_end <= len(scaffold) and next:
 		next_fragment = extract_fragments_from_scaffold(scaffold, [next_fragment_start, next_fragment_end]) # remember this already does reverse complement if needed
 		# print(next_fragment)
 
-		# Translate the fragment to peptide in all 3 reading frames
-		peptides_list = [next_fragment.translate(), next_fragment[1:].translate(), next_fragment[2:].translate()]
-		# print("Lenght of peptide list is: " + str(len(peptides_list)))
+		# Translate the fragment to peptide in all 3 reading frames, except for the local alignment which needs to be done only for the same frame as the one that failed with global alignment
+		if reading_frame == 'All':
+			peptides_list = [next_fragment.translate(), next_fragment[1:].translate(), next_fragment[2:].translate()]
+			# print("Lenght of peptide list is: " + str(len(peptides_list)))
+		else:
+			peptides_list = [next_fragment[reading_frame:].translate()]
 
 		# Align each peptide to the protein homolog, evaluate the alignment and if it is good, append the fragment
 		for index in range(0, len(peptides_list)):
-			# print('TESTING PEPTIDE:')
-			# print(peptides_list[index])
-			# print('PEPTIDE FRAME: ' + str(index))
+			print('TESTING PEPTIDE:')
+			print(peptides_list[index])
+			print('PEPTIDE FRAME: ' + str(index))
+			print('PEPTIDE ORDER: ' + str(order))
 			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index])
 			# print(alignment)
 
@@ -317,22 +327,32 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 				for position in range(0, alignment.get_alignment_length()):
 					if alignment[0, position] != '-':
 						position_in_homolog += 1
-					# print(alignment[0, position])
-					# print(alignment[1, position])
-					if alignment[1, position] != '-' and not within_seq:
-						start = position
-						homolog_start = position_in_homolog
-						within_seq = 1
-					if alignment[1, position] == '-' and alignment[1, position -1] != '-': # this only founds the end if there is an end gap!
-						end = position - 1
-						end_found = True
-						homolog_end = position_in_homolog - 1
-					if alignment[0, position] == alignment[1, position]:
-						identical_positions += 1
+						if alignment[1, position] != '-':
+							end_found = False # set end found to False each time you find an AA, to prevent internal gaps from being considered the end if there is not end gap
+							if not within_seq:
+								start = position
+								homolog_start = position_in_homolog
+								within_seq = 1
+						if within_seq and alignment[1, position] == '-' and alignment[1, position -1] != '-': # this only founds the end if there is an end gap!
+							# print("END FOUND")
+							# print("PREVIOUS POSITION:")
+							# print(alignment[1, position -1 ])
+							end = position - 1
+							end_found = True
+							homolog_end = position_in_homolog - 1
+						if alignment[0, position] == alignment[1, position]:
+							identical_positions += 1
 				# after checking all positions, if end has not been found because there is no end gap, it means the end is the end of the actual alignment
 				if not end_found:
-					end = alignment.get_alignment_length()
+					end = alignment.get_alignment_length() - 1
 					homolog_end = position_in_homolog
+
+				# if doing local alignment, the output only contains the subsequences that align correctly, so we need to locate the homolog subsequence in the sequence of the full homolog and transform the coordinates
+				if fragment_size == 300:
+						aligned_region = alignment[0].seq
+						print(alignment[1].seq.replace('-', ''))
+						homolog_start = protein_homolog.seq.find(aligned_region.replace('-', '')) + 1 # add one since we are doing 1-based indexing
+						homolog_end = homolog_start + len(aligned_region) - 1
 
 				# check if current fragment aligned is contiguous with the previously aligned one
 				# print(candidate_peptide[4])
@@ -341,7 +361,6 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 				# print(homolog_end)
 				if direction == 'downstream': # if fragments go downstream of the genome lead strand
 					if candidate_peptide[0] < candidate_peptide[1]: # if the gene is in the lead strand
-				# FIX THIS PART BELOW; NOTE THAT HERE IS PEPTIDE COORDINATES AND YOU ALWAYS HAVE THEM FROM N-TERMINAL TO C-TERMINAL I.E. FROM LEFT TO RIGHT UNLIKE IN DNA
 						if 0 < homolog_start - candidate_peptide[5] <= 10:
 							contiguous = True
 						else:
@@ -364,9 +383,15 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 							contiguous = False
 
 				# Compute PID without considering start/end gaps
+				# print(start)
+				# print(end)
 				percent_identity = 100*identical_positions/(end - start + 1)
-				# print('PERCENT IDENTITY:')
-				# print(percent_identity)
+				print('PERCENT IDENTITY:')
+				print(percent_identity)
+				print('START IN HOMOLOG:')
+				print(homolog_start)
+				print('END IN HOMOLOG:')
+				print(homolog_end)
 
 				# If the fragment passes the thresholds, get the final coordinates and create the fragment entry for the list
 				if contiguous and percent_identity > 20:
@@ -388,17 +413,65 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 						else:
 							corrected_start = next_fragment_start - 2
 							corrected_end = next_fragment_end + 1
-					
-					# then if fragment size is 300, it means we did a local alignment, so we need the coordinates for the part that got aligned
+					print('CODING FRAME:')
+					print(index)
+					print('CORRECTED GENOMIC COORDINATES FOR THE FRAME:')
+					print(corrected_start)
+					print(corrected_end)
+					# then if fragment size is 300, it means we did a local alignment, so we need the coordinates for the part that got aligned in the homolog, as well as extracting the peptide subsequence
 					if fragment_size == 300:
-						aligned_region = alignment[1].seq # NOT SURE IF THIS WILL REMOVE THE GAPS, LET'S SEE
+						print('FRAGMENT WAS ASSESSED BY LOCAL ALIGNMENT')
+						# extract peptide subsequence
+						aligned_region = alignment[1].seq
+						aligned_region = aligned_region.replace('-', '')
+
+						# Find position of aligned region in relative to the full 300bp fragment
 						aligned_region_start = peptides_list[index].find(aligned_region) + 1 # add one since we are doing 1-based indexing
 						aligned_region_end = aligned_region_start + len(aligned_region) - 1
-						corrected_start = corrected_start + aligned_region_start - 1
-						corrected_end = corrected_end + aligned_region_end - 1
+						peptide_head_gap = aligned_region_start - 1
+						aligned_region_len = len(aligned_region)
+						peptide_end_gap = len(peptides_list[index]) - peptide_head_gap - aligned_region_len
+						aligned_nucleotide_len = len(aligned_region)*3
+						print('LENGTH OF PORTION OF PEPTIDE THAT ALIGNS:')
+						print(aligned_region_len)
+						print('LENGTH OF AMINOACIDS NOT ALIGNED IN THE N-TERMINAL:')
+						print(peptide_head_gap)
+						print('LENGTH OF AMINOACIDS NOT ALIGNED IN THE C-TERMINAL:')
+						print(peptide_end_gap)
+
+						# Correct again the genomic coordinates considering only the short fragment that aligns of the initial 300bp; needs to accound for sense/antisense
+						if candidate_peptide[0] < candidate_peptide[1]:
+							print("PEPTIDE IS ON THE SENSE STRAND:")
+							nucleotide_head_gap = 3*peptide_head_gap
+							corrected_start = corrected_start + nucleotide_head_gap
+							corrected_end = corrected_start + aligned_nucleotide_len - 1
+							aligned_nucleotide_start = corrected_start - next_fragment_start # note that we should add +1 BUT since we use this to subset for Python, and which is 0-based and we are using 1-based, we would have to subtract 1, so we save that step
+							aligned_nucleotide_end = corrected_end - next_fragment_end # same as previous line
+							next_fragment_aligned_region = next_fragment.reverse_complement()[aligned_nucleotide_start:aligned_nucleotide_end]
+
+						else:
+							print("PEPTIDE IS ON THE ANTI-SENSE STRAND:")
+							nucleotide_head_gap = 3*peptide_end_gap
+							corrected_end = corrected_end + nucleotide_head_gap
+							corrected_start = corrected_end + aligned_nucleotide_len - 1
+							aligned_nucleotide_start = corrected_start - next_fragment_start # note that we should add +1 BUT since we use this to subset for Python, and which is 0-based and we are using 1-based, we would have to subtract 1, so we save that step
+							aligned_nucleotide_end = corrected_end - next_fragment_end # same as previous line
+							next_fragment_aligned_region = next_fragment.reverse_complement()[aligned_nucleotide_end:aligned_nucleotide_start]
+						print("LENGTH OF NUCLEOTIDES NOT ALIGNED IN THE 5':")
+						print(nucleotide_head_gap)
+						print("GENOMIC COORDINATES CORRECTED FOR THE ALIGNED FRAGMENT:")
+						print(corrected_start)
+						print(corrected_end)
+						print("DNA FRAGMENT CORRESPONDING TO THE ALIGN PORTION OF THE PEPTIDE:")
+						print(next_fragment_aligned_region)
+						print("TRANSLATION TO CHECK IT WORKS OK:")
+						print(next_fragment_aligned_region.translate())
 					
-					# then build the list with the attributes of the fragment to yield
-					next_fragment_entry = [corrected_start, corrected_end, next_fragment, peptides_list[index], homolog_start, homolog_end]
+					# then build the list with the attributes of the fragment to yield # NEED TO UPDATE THIS TO GIVE START AND END INVERTED IF ON ANTISENSE STRAND
+					if fragment_size == 90:
+						next_fragment_entry = [corrected_start, corrected_end, next_fragment.reverse_complement(), peptides_list[index], homolog_start, homolog_end]
+					else:
+						next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, aligned_region, homolog_start, homolog_end]
 					yield (next_fragment_entry, order)
 					
 					# lastly, call the next iteration 
@@ -407,8 +480,13 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 
 		 		# If it does not pass the thresholds AND we have NOT done local alignment yet, start the 300bp local alignment step
 				elif do_local:
+					print("Peptide not good. Starting round of local alignment")
 					yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
-						protein_homolog = protein_homolog, direction = direction, order = order, fragment_size = 300, do_local = False)
+						protein_homolog = protein_homolog, direction = direction, order = order - 1, fragment_size = 300, do_local = False, reading_frame = index) # CHANGE THE READING FRAME!!!!
+				else:
+					print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
+			else:
+				print("No local alignment produced for this sequence, it will not be added to the peptide")
 	else:
 		print('INFO: Skipping this peptide, it would be outside the bounds of the scaffold. If this happened with the seed, there will be no alignment output.')
 
