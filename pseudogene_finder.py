@@ -552,11 +552,11 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix):
 	"""
 	blast_file = outprefix + ".blastp.wordsize" + wordsize + "." + matrix + ".evalue" + max_evalue + ".out"
 	blast_file = blast_file.replace(' ', '_')
-	blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt 6 -num_threads " + threads + " -out " + blast_file
+	blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
 	os.system(blastp_command)
 
 	blastp_results = pd.read_csv(blast_file, sep='\t', header = None)
-	blastp_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore'}, inplace = True)
+	blastp_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
 	
 	return(blastp_results)
 
@@ -594,6 +594,8 @@ if __name__ == '__main__':
 		matrix=args['--tblastn_matrix'], max_evalue=args['--tblastn_max_evalue'], seg_filter=args['--tblastn_seg_filter'], 
 		threads = args['--tblastn_threads'], outprefix=args['--outprefix'])
 
+	if args['--verbose']:
+		print("tBLASTn completed. Extending the peptide seeds found...")
 	# The rest of steps are done protein homolog by protein homolog
 	with open(args['--proteins']) as proteins_fh:
 		for protein in FastaIO.FastaIterator(proteins_fh):
@@ -727,12 +729,12 @@ if __name__ == '__main__':
 	# Remove temporary files used for alignments
 	os.system('rm *.fa && rm lalign.aln')
 	
-	# Run blastp validation of the reconstructed peptide sequences
-	fasta_files_list = glob.glob('*.reconstructed_peptides.fasta')
-	for index in range(0, len(fasta_files_list)):
-		fasta_file = fasta_files_list[index]
-		blastp_output = blastp(query = fasta_file, target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
-			max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = fasta_file)
+	if args['--verbose']:
+		print("Seed extension phase finished. Conducting BLASTp to validate the reconstructed peptides...")
+	# Run blastp validation of the reconstructed peptide sequences (putting them on a single file for speed)
+	os.system('rm -f reconstructed_peptides_all.fasta && for file in *.reconstructed_peptides.fasta; do cat $file >> reconstructed_peptides_all.fasta; done')
+	blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
+		max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all')
 
 	if args['--verbose']:
 		print("Execution finished.")
