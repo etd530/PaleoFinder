@@ -160,37 +160,6 @@ def translate_dna(fragments_list, frame = 0):
 			peptide = hit[0][2][frame:].translate()
 			fragments_list[scaffold][fragments_list[scaffold].index(hit)][0].insert(3, peptide)
 
-
-# def align_peptides(protein, fragments_list):
-# 	"""
-# 	Align a series of AA sequences to a protein sequence using EMBOSS Needle.
-
-# 	Arguments:
-# 		protein: the protein to which the fragments are to be aligned, as Seq object.
-# 		fragments_list: a dictionary with scaffold names as keys and a list containing the peptide fragments to align as values.
-
-# 	Returns:
-# 		A list with the alignments.
-# 	"""
-# 	alignments_list = []
-# 	for scaffold, scaffold_hits in fragments_list.items():
-# 		# print(scaffold)
-# 		for hit in scaffold_hits:
-# 			# print(hit)
-# 			for candidate in hit:
-# 				# print(candidate)
-# 				# print(candidate[3])
-# 				# print(peptide)
-# 				with open("seqa.fa", 'w') as fh:
-# 					fh.write('>%s\n%s\n' % (protein.id, protein.seq))
-# 				with open('seqb.fa', 'w') as fh:
-# 					fh.write('>%s.%s.%s\n%s\n' % (scaffold, str(hit[0][0]), str(hit[0][1]), candidate[3]))
-
-# 				os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta')
-# 				alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
-# 				alignments_list.append(alignment)
-# 	return(alignments_list)
-
 def align_peptides_simple(protein, peptide):
 	"""
 	Align 2 aminoacid sequences using the specified program (either EMBOSS Needle for global alignment of lalign36 for non-overlapping local alignments).
@@ -426,6 +395,35 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 						print('CORRECTED GENOMIC COORDINATES FOR THE FRAME:')
 						print(corrected_start)
 						print(corrected_end)
+
+						# Under the assumption that +- big gaps in the peptide fragment are likely to be the result of pseudogenisation and not a difference in the functional ancestor relative to the homolog, we replace gaps >3AA by X (we think the functional ancestor had AAs there)
+						# This is based on the (qualitative) observation that gaps between protein homologs of functional nudiviruses are usually 2-3 AA in size, rarely 4 (ideally we should check this later with a distribution)
+						# First we list the gaps
+						large_gaps_list = []
+						gap_size = 0
+						within_seq = False
+						for position in range(0, alignment.get_alignment_length()):
+							if alignment[1, position] != '-':
+								within_seq = True
+							if within_seq:
+								if alignment[1, position] == '-' and alignment[0, position] != '-':
+									if gap_size == 0:
+										gap_start = position
+									gap_size += 1
+								elif alignment[1, position] != '-' and gap_size:
+									gap_end = position # note that the actual end is position -1, but we code is as a Python range for later
+									if gap_size > 3:
+										large_gaps_list.append((gap_start, gap_end))
+									gap_size = 0
+
+						# Then we replace the big gaps by X, and remove the remaining gaps (since they are not part of the actual sequence, neither ancestral not pseudogenised)
+						aligned_peptide = alignment[1].seq
+						for gap_coordinates in large_gaps_list:
+							for position in range(gap_coordinates[0], gap_coordinates[1]):
+								aligned_peptide = aligned_peptide[:position] + 'X' + aligned_peptide[position + 1:]
+						
+						aligned_peptide = aligned_peptide.replace('-', '')
+
 						# then if fragment size is 300, it means we did a local alignment, so we need the coordinates for the part that got aligned in the homolog, as well as extracting the peptide subsequence
 						if fragment_size == 300:
 							print('FRAGMENT WAS ASSESSED BY LOCAL ALIGNMENT')
@@ -477,9 +475,9 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 						
 						# then build the list with the attributes of the fragment to yield # NEED TO UPDATE THIS TO GIVE START AND END INVERTED IF ON ANTISENSE STRAND
 						if fragment_size == 90:
-							next_fragment_entry = [corrected_start, corrected_end, next_fragment.reverse_complement(), peptides_list[index], homolog_start, homolog_end]
+							next_fragment_entry = [corrected_start, corrected_end, next_fragment.reverse_complement(), aligned_peptide, homolog_start, homolog_end]
 						else:
-							next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, aligned_region, homolog_start, homolog_end]
+							next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, aligned_peptide, homolog_start, homolog_end]
 						yield (next_fragment_entry, order)
 						
 						# lastly, call the next iteration 
@@ -566,18 +564,6 @@ if __name__ == '__main__':
 	#### PARSE ARGS ####
 	args = docopt(__doc__)
 	print(args)
-
-	# if len(args['--genome'].split('/')) > 1:
-	# 	args['--genome_dir'] = '/'.join(args['--genome'].split('/')[0:-1])+'/'
-	# 	args['--genome'] = args['--genome'].split('/')[-1]
-
-	# if len(args['--proteins'].split('/')) > 1:
-	# 	args['--proteins_dir'] = '/'.join(args['--proteins'].split('/')[0:-1])+'/'
-	# 	args['--proteins'] = args['--proteins'].split('/')[-1]
-
-	# args['--tblastn_wordsize'] = int(args['--tblastn_wordsize'])
-	# args['--tblastn_threads'] = int(args['--tblastn_threads'])
-	# args['--tblastn_max_evalue'] = float(args['--tblastn_max_evalue'])
 
 	#### MAIN ####
 	if args['--verbose']:
