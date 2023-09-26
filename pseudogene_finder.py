@@ -5,16 +5,16 @@
 Reconstruct highly degraded pseudogenes by means of sliding window-based subsequent alignments from a seed alignment.
 
 Usage: 
-	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py tblastn --proteins=FASTA --genome=FASTA [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --outprefix=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py extend --proteins=FASTA --genome=FASTA --tblastn_output=STR [--outprefix=STR] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
 
     Options:
         -p, --proteins FASTA                      Input query proteins for that serve as reference to find pseudogenes, in FASTA format. Can contain multiple sequences
         -g, --genome FASTA                        Input target genome in which pseudogenes are to be found, in FASTA format.
         --tblastn_output STR                      Name of the file containing the tblastn output to use for the extension phase.
-        --blastp_db STR                           Path to the blastp database.
+        --blastp_db STR                           Path to the blastp/diamond database.
         --tblastn_wordsize INT                    Word size to use for the initial tblastn search [default: 3].
         --tblastn_matrix STR                      Alignment scoring matrix to use for the initial tblastn search [default: BLOSUM62].
         --tblastn_max_evalue FLT                  Maximum e-value to keep a hit in the initial tblastn search [default: 50].
@@ -24,6 +24,8 @@ Usage:
         --blastp_matrix STR                       Alignment scoring matrix to use for blastp [default: BLOSUM62].
         --blastp_max_evalue FLT                   Maximum e-value to keep a hit in the blastp search [default: 0.2].
         --blastp_threads INT                      Number of threads to use for blastp search [default: 10].
+        --diamond                                 Use diamond instead of NCBI's blastp for the final validation.
+        --diamond_block_size FLT                  Block size to use for diamond; note diamond will use up to about 6 times this value in GBs of RAM [default: 2]
         -o, --outprefix STR                       Prefix to use for output files [default: pseudogene_finder].
         -v, --verbose                             Print the progressions of the program to the terminal (Standard Error).
         -h, --help                                Show this help message and exit.
@@ -35,7 +37,7 @@ from Bio.SeqIO import FastaIO  # to work with fasta sequences
 from Bio import Align, AlignIO # to work with alignments
 import os                      # to send Linux commands
 import pandas as pd            # to work with dataframes
-import glob                    # to niceliy list files from directories
+import glob                    # to nicely list files from directories
 
 
 #### FUNS ####
@@ -510,7 +512,7 @@ def peptides2fasta(reconstructed_peptides):
 		peptide_sequences_list.append(full_seq)
 	return peptide_sequences_list
 
-def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix):
+def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, block_size, diamond = False):
 	"""
 	Run blastp of the reconstructed peptide sequences against a protein database.
 
@@ -526,11 +528,19 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix):
 	Returns:
 		A Pandas dataframe with the results of blastp in tabular format.
 	"""
-	blast_file = outprefix + ".blastp.wordsize" + wordsize + "." + matrix + ".evalue" + max_evalue + ".out"
-	blast_file = blast_file.replace(' ', '_')
-	blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
+	if diamond:
+		blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".out"
+		blast_file = blast_file.replace(' ', '_')
+		# blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --evalue " + max_evalue + " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle staxids sscinames -b 30 -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
+		blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --max-hsps 0 --evalue " + max_evalue + " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle -b " + block_size + " -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
+		# WARNING: CHANGE THE BLAST COMMAND LATER! THE GOOD ONE IS THE COMMETED OUT BUT IN THE LOCAL DB I DO NOT HAVE TAXID INFO FOR THE OUTPUT!
+		# NOTE: On Robert's pipeline they use bitscore instead of evalue to filter results: --min-score 40; to keep in mind
+		# NOTE 2: We don't have sacc on the output columns since apparantly diamond does not allow for it
+	else:
+		blast_file = outprefix + ".blastp.wordsize" + wordsize + "." + matrix + ".evalue" + max_evalue + ".out"
+		blast_file = blast_file.replace(' ', '_')
+		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
 	os.system(blastp_command)
-
 	blastp_results = pd.read_csv(blast_file, sep='\t', header = None)
 	blastp_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
 	
@@ -734,8 +744,12 @@ if __name__ == '__main__':
 			print("Conducting BLASTp to validate the reconstructed peptides...")
 		# Run blastp validation of the reconstructed peptide sequences (putting them on a single file for speed)
 		os.system('rm -f reconstructed_peptides_all.fasta && for file in fasta_files/*.reconstructed_peptides.fasta; do cat $file >> reconstructed_peptides_all.fasta; done')
-		blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
-			max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all')
+		if args['--diamond']:
+			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
+				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], diamond = True)
+		else:
+			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
+				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'])
 		os.system('rm reconstructed_peptides_all.fasta')
 		if args['--verbose']:
 			print("blastp completed.\nExecution finished.")
