@@ -298,7 +298,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index])
 			# print(alignment)
 
-			# make sure you actually got an alignemnt before continuing (local alignment may not return anything)
+			# make sure you actually got an alignment before continuing (local alignment may not return anything)
 			if alignment is not None:
 				# find where the peptide fragment has the end gaps to not count these in the PID calculation
 				# also find the start and end coordinates relative to the homologous protein
