@@ -279,7 +279,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 				print('PEPTIDE FRAME: ' + str(reading_frame))
 			print('PEPTIDE ORDER: ' + str(order))
 			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index])
-			# print(alignment)
+			print(alignment)
 
 			# make sure you actually got an alignment before continuing (local alignment may not return anything)
 			if alignment is not None:
@@ -457,8 +457,16 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 				else:
 					print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
 
+			# if no alignment produced, check fi we still need to try a 300bp
+			elif do_local:
+				print("No local alignment produced for this 90bp round, starting 300bp round.")
+				yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
+					protein_homolog = protein_homolog, direction = direction, order = order -1, fragment_size = 300, do_local = False, reading_frame = index)
+			
+			# if not, just end the round of extension and go to the next candidate peptide
 			else:
 				print("No local alignment produced for this sequence, it will not be added to the peptide")
+
 	else:
 		print('INFO: Skipping this peptide, it would be outside the bounds of the scaffold. If this happened with the seed, there will be no alignment output.')
 
