@@ -180,37 +180,20 @@ def align_peptides_simple(protein, peptide):
 		An alignment object.
 	"""
 	# Check peptide size, if it is 30AA do global alignment, else it should be 100AA, do local alignment
-	# print(peptide)
-	if len(peptide) == 30 or len(peptide) == 29: #putting just if len() < 31 should do, but I want to make sure there is no unforeseen stuff; change later?
-		# Align with EMBOSS-Needle
-		with open("seqa.fa", 'w') as fh:
-			fh.write('>%s\n%s\n' % (protein.id, protein.seq))
-		with open("seqb.fa", "w") as fh:
-			fh.write('>fragment_peptide\n%s\n' % peptide)
-		os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta -auto Y')
-		status = os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
-		alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
-		# Align with Clustal Omega (Needle works best for our case for now)
-		# with open("input_seqs.fa", 'w') as fh:
-		# 	fh.write('>%s\n%s\n>fragment_peptide\n%s\n' % (protein.id, protein.seq, peptide))
-		# os.system('clustalo --infile input_seqs.fa > pairwise_seqs.fa')
-		# os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
-		# alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
-	elif len(peptide) == 100 or len(peptide) == 99: #same as above, putting just len()<101 should do
-		# Align with lalign36
-		with open("seqa.fa", 'w') as fh:
-			fh.write('>%s\n%s\n' % (protein.id, protein.seq))
-		with open("seqb.fa", "w") as fh:
-			fh.write('>fragment_peptide\n%s\n' % peptide)
-		# NOTE: THIS LINE WILL NOT WORK WITHOUT USERS ADDING THE PROGRAM TO THE PATH, NEED TO SEE HOW TO FIX THIS
-		os.system('lalign36 -O lalign.aln -m 3 -3 -C 20 -Q -q seqa.fa seqb.fa > lalign.log')
-		status = os.system('num1=`egrep -c "^>" lalign.aln`; num2=2; [ $num1 -eq $num2 ]')
-		if not status:
-			os.system('''cat lalign.aln | head -n -10 | tail -n +20 > pairwise_seqs.fa && \
-				seqindex1=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | head -n1` && \
-				seqindex2=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | tail -n1` && seqname=`head -n1 seqa.fa | sed -E 's/\//_/g'` && \
-				sed -Ei "${seqindex1}s/.*/${seqname}/" pairwise_seqs.fa && seqname=`head -n1 seqb.fa | sed -E 's/\//_/g'` && \
-				sed -Ei "${seqindex2}s/.*/${seqname}/" pairwise_seqs.fa && cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa''')
+	# Align with lalign36
+	with open("seqa.fa", 'w') as fh:
+		fh.write('>%s\n%s\n' % (protein.id, protein.seq))
+	with open("seqb.fa", "w") as fh:
+		fh.write('>fragment_peptide\n%s\n' % peptide)
+	# NOTE: THIS LINE WILL NOT WORK WITHOUT USERS ADDING THE PROGRAM TO THE PATH, NEED TO SEE HOW TO FIX THIS
+	os.system('lalign36 -O lalign.aln -m 3 -3 -C 20 -Q -q seqa.fa seqb.fa > lalign.log')
+	status = os.system('num1=`egrep -c "^>" lalign.aln`; num2=2; [ $num1 -eq $num2 ]')
+	if not status:
+		os.system('''cat lalign.aln | head -n -10 | tail -n +20 > pairwise_seqs.fa && \
+			seqindex1=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | head -n1` && \
+			seqindex2=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | tail -n1` && seqname=`head -n1 seqa.fa | sed -E 's/\//_/g'` && \
+			sed -Ei "${seqindex1}s/.*/${seqname}/" pairwise_seqs.fa && seqname=`head -n1 seqb.fa | sed -E 's/\//_/g'` && \
+			sed -Ei "${seqindex2}s/.*/${seqname}/" pairwise_seqs.fa && cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa''')
 	# if os.path.isfile('pairwise_seqs.fa'):
 	if not status:
 		alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
@@ -298,7 +281,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index])
 			# print(alignment)
 
-			# make sure you actually got an alignemnt before continuing (local alignment may not return anything)
+			# make sure you actually got an alignment before continuing (local alignment may not return anything)
 			if alignment is not None:
 				# find where the peptide fragment has the end gaps to not count these in the PID calculation
 				# also find the start and end coordinates relative to the homologous protein
@@ -330,12 +313,11 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 					end = alignment.get_alignment_length() - 1
 					homolog_end = position_in_homolog
 
-				# if doing local alignment, the output only contains the subsequences that align correctly, so we need to locate the homolog subsequence in the sequence of the full homolog and transform the coordinates
-				if fragment_size == 300:
-						aligned_region = alignment[0].seq
-						print(alignment[1].seq.replace('-', ''))
-						homolog_start = protein_homolog.seq.find(aligned_region.replace('-', '')) + 1 # add one since we are doing 1-based indexing
-						homolog_end = homolog_start + len(aligned_region) - 1
+				# since we do local alignment, the output only contains the subsequences that align correctly, so we need to locate the homolog subsequence in the sequence of the full homolog and transform the coordinates
+				aligned_region = alignment[0].seq
+				print(alignment[1].seq.replace('-', ''))
+				homolog_start = protein_homolog.seq.find(aligned_region.replace('-', '')) + 1 # add one since we are doing 1-based indexing
+				homolog_end = homolog_start + len(aligned_region) - 1
 
 				# check that homolog_start has been created, meaning at least one residue of the homolog and the query fragment were aligned
 				if 'homolog_start' in locals():
@@ -404,60 +386,55 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 						print('CORRECTED GENOMIC COORDINATES FOR THE FRAME:')
 						print(corrected_start)
 						print(corrected_end)
-						# then if fragment size is 300, it means we did a local alignment, so we need the coordinates for the part that got aligned in the homolog, as well as extracting the peptide subsequence
-						if fragment_size == 300:
-							print('FRAGMENT WAS ASSESSED BY LOCAL ALIGNMENT')
-							# extract peptide subsequence
-							aligned_region = alignment[1].seq
-							aligned_region = aligned_region.replace('-', '')
+						# since we do local alignment, we need the coordinates for the part that got aligned in the homolog, as well as extracting the peptide subsequence
+						# extract peptide subsequence
+						aligned_region = alignment[1].seq
+						aligned_region = aligned_region.replace('-', '')
 
-							# Find position of aligned region in relative to the full 300bp fragment
-							aligned_region_start = peptides_list[index].find(aligned_region) + 1 # add one since we are doing 1-based indexing
-							aligned_region_end = aligned_region_start + len(aligned_region) - 1
-							peptide_head_gap = aligned_region_start - 1
-							aligned_region_len = len(aligned_region)
-							peptide_end_gap = len(peptides_list[index]) - peptide_head_gap - aligned_region_len
-							aligned_nucleotide_len = len(aligned_region)*3
-							print('LENGTH OF PORTION OF PEPTIDE THAT ALIGNS:')
-							print(aligned_region_len)
-							print('LENGTH OF AMINOACIDS NOT ALIGNED IN THE N-TERMINAL:')
-							print(peptide_head_gap)
-							print('LENGTH OF AMINOACIDS NOT ALIGNED IN THE C-TERMINAL:')
-							print(peptide_end_gap)
+						# Find position of aligned region in relative to the full 300bp fragment
+						aligned_region_start = peptides_list[index].find(aligned_region) + 1 # add one since we are doing 1-based indexing
+						aligned_region_end = aligned_region_start + len(aligned_region) - 1
+						peptide_head_gap = aligned_region_start - 1
+						aligned_region_len = len(aligned_region)
+						peptide_end_gap = len(peptides_list[index]) - peptide_head_gap - aligned_region_len
+						aligned_nucleotide_len = len(aligned_region)*3
+						print('LENGTH OF PORTION OF PEPTIDE THAT ALIGNS:')
+						print(aligned_region_len)
+						print('LENGTH OF AMINOACIDS NOT ALIGNED IN THE N-TERMINAL:')
+						print(peptide_head_gap)
+						print('LENGTH OF AMINOACIDS NOT ALIGNED IN THE C-TERMINAL:')
+						print(peptide_end_gap)
 
-							# Correct again the genomic coordinates considering only the short fragment that aligns of the initial 300bp; needs to accound for sense/antisense
-							if candidate_peptide[0] < candidate_peptide[1]:
-								print("PEPTIDE IS ON THE SENSE STRAND:")
-								nucleotide_head_gap = 3*peptide_head_gap
-								corrected_start = corrected_start + nucleotide_head_gap
-								corrected_end = corrected_start + aligned_nucleotide_len - 1
-								aligned_nucleotide_start = corrected_start - next_fragment_start # note that we should add +1 BUT since we use this to subset for Python, and which is 0-based and we are using 1-based, we would have to subtract 1, so we save that step
-								aligned_nucleotide_end = corrected_end - next_fragment_end # same as previous line
-								next_fragment_aligned_region = next_fragment.reverse_complement()[aligned_nucleotide_start:aligned_nucleotide_end]
+						# Correct again the genomic coordinates considering only the short fragment that aligns of the initial 300bp; needs to accound for sense/antisense
+						if candidate_peptide[0] < candidate_peptide[1]:
+							print("PEPTIDE IS ON THE SENSE STRAND:")
+							nucleotide_head_gap = 3*peptide_head_gap
+							corrected_start = corrected_start + nucleotide_head_gap
+							corrected_end = corrected_start + aligned_nucleotide_len - 1
+							aligned_nucleotide_start = corrected_start - next_fragment_start # note that we should add +1 BUT since we use this to subset for Python, and which is 0-based and we are using 1-based, we would have to subtract 1, so we save that step
+							aligned_nucleotide_end = corrected_end - next_fragment_end # same as previous line
+							next_fragment_aligned_region = next_fragment.reverse_complement()[aligned_nucleotide_start:aligned_nucleotide_end]
 
-							else:
-								print("PEPTIDE IS ON THE ANTI-SENSE STRAND:")
-								nucleotide_head_gap = 3*peptide_end_gap
-								corrected_end = corrected_end + nucleotide_head_gap
-								corrected_start = corrected_end + aligned_nucleotide_len - 1
-								aligned_nucleotide_start = corrected_start - next_fragment_start # note that we should add +1 BUT since we use this to subset for Python, and which is 0-based and we are using 1-based, we would have to subtract 1, so we save that step
-								aligned_nucleotide_end = corrected_end - next_fragment_end # same as previous line
-								next_fragment_aligned_region = next_fragment.reverse_complement()[aligned_nucleotide_end:aligned_nucleotide_start]
-							print("LENGTH OF NUCLEOTIDES NOT ALIGNED IN THE 5':")
-							print(nucleotide_head_gap)
-							print("GENOMIC COORDINATES CORRECTED FOR THE ALIGNED FRAGMENT:")
-							print(corrected_start)
-							print(corrected_end)
-							print("DNA FRAGMENT CORRESPONDING TO THE ALIGN PORTION OF THE PEPTIDE:")
-							print(next_fragment_aligned_region)
-							print("TRANSLATION TO CHECK IT WORKS OK:")
-							print(next_fragment_aligned_region.translate())
+						else:
+							print("PEPTIDE IS ON THE ANTI-SENSE STRAND:")
+							nucleotide_head_gap = 3*peptide_end_gap
+							corrected_end = corrected_end + nucleotide_head_gap
+							corrected_start = corrected_end + aligned_nucleotide_len - 1
+							aligned_nucleotide_start = corrected_start - next_fragment_start # note that we should add +1 BUT since we use this to subset for Python, and which is 0-based and we are using 1-based, we would have to subtract 1, so we save that step
+							aligned_nucleotide_end = corrected_end - next_fragment_end # same as previous line
+							next_fragment_aligned_region = next_fragment.reverse_complement()[aligned_nucleotide_end:aligned_nucleotide_start]
+						print("LENGTH OF NUCLEOTIDES NOT ALIGNED IN THE 5':")
+						print(nucleotide_head_gap)
+						print("GENOMIC COORDINATES CORRECTED FOR THE ALIGNED FRAGMENT:")
+						print(corrected_start)
+						print(corrected_end)
+						print("DNA FRAGMENT CORRESPONDING TO THE ALIGN PORTION OF THE PEPTIDE:")
+						print(next_fragment_aligned_region)
+						print("TRANSLATION TO CHECK IT WORKS OK:")
+						print(next_fragment_aligned_region.translate())
 						
 						# then build the list with the attributes of the fragment to yield # NEED TO UPDATE THIS TO GIVE START AND END INVERTED IF ON ANTISENSE STRAND
-						if fragment_size == 90:
-							next_fragment_entry = [corrected_start, corrected_end, next_fragment.reverse_complement(), peptides_list[index], homolog_start, homolog_end]
-						else:
-							next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, aligned_region, homolog_start, homolog_end]
+						next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, aligned_region, homolog_start, homolog_end]
 						yield (next_fragment_entry, order)
 						
 						# lastly, call the next iteration 
