@@ -204,6 +204,7 @@ def align_peptides_simple(protein, peptide):
 			fh.write('>fragment_peptide\n%s\n' % peptide)
 		# NOTE: THIS LINE WILL NOT WORK WITHOUT USERS ADDING THE PROGRAM TO THE PATH, NEED TO SEE HOW TO FIX THIS
 		os.system('lalign36 -O lalign.aln -m 3 -3 -C 20 -Q -q seqa.fa seqb.fa > lalign.log')
+		os.system('cat lalign.aln')
 		status = os.system('num1=`egrep -c "^>" lalign.aln`; num2=2; [ $num1 -eq $num2 ]')
 		if not status:
 			os.system('''cat lalign.aln | head -n -10 | tail -n +20 > pairwise_seqs.fa && \
@@ -290,6 +291,8 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 		for index in range(0, len(peptides_list)):
 			print('TESTING PEPTIDE:')
 			print(peptides_list[index])
+			print('PEPTIDE LENGTH:')
+			print(len(peptides_list[index]))
 			if len(peptides_list) > 1:
 				print('PEPTIDE FRAME: ' + str(index))
 			else:
