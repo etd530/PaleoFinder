@@ -38,7 +38,7 @@ from Bio import Align, AlignIO # to work with alignments
 import os                      # to send Linux commands
 import pandas as pd            # to work with dataframes
 import glob                    # to nicely list files from directories
-
+import time # DELETE
 
 #### FUNS ####
 def make_blast_db(genome):
@@ -548,6 +548,42 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 	blastp_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
 	
 	return(blastp_results)
+
+def is_child(query_taxid, parent_taxid, taxdb_nodes):
+	"""
+	Check if a given query taxid is indeed a child of another parent taxid.
+
+	Arguments:
+		query_taxid: taxid whose parents nodes we wish to know.
+		parent_taxid: taxid for which to check if it is a parent or not.
+		taxdb_nodes: path to the nodes.dmp file of the NCBI Taxonomy database.
+
+	Returns:
+		A Boolean value indicating whether or not query_taxid is a child node of parent_taxid.
+	"""
+	if not os.path.isfile(taxdb_nodes + '.collapsed'):
+		os.system("sed -E 's/\t//g' "+ taxdb_nodes +" | cut -f1,2,3 -d'|' | sed -E 's/\|/,/g' > " + taxdb_nodes + ".collapsed")
+	taxdb = pd.read_csv(taxdb_nodes + '.collapsed', sep=',', header = None)
+	taxdb.rename(columns={0: 'node', 1: 'parent', 2: 'rank'}, inplace = True)
+	while query_taxid != parent_taxid:
+		query_taxid = taxdb['parent'][taxdb['node'] == query_taxid].iloc[0]
+		if query_taxid == 1:
+			return(False)
+	return(True)
+
+def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes):
+	"""
+	Filter the output of blastp based on the taxonomic assignment of the hits.
+	"""
+	rows_to_keep = []
+	for index, row in blastp_df.iterrows():
+		query_taxid = row['staxids']
+		if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb_nodes = taxdb_nodes):
+			rows_to_keep.append(index)
+	blastp_subset_df = blastp_df.loc[rows_to_keep][range(0, len(blastp_df.columns))]
+	return(blastp_subset_df)
+
+
 
 if __name__ == '__main__':
 	__version__ = "0.5.2"
