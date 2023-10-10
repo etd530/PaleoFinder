@@ -84,7 +84,7 @@ def tblastn(query, target, wordsize, matrix, max_evalue, seg_filter, threads, ou
 	
 	try:
 		tblastn_results = pd.read_csv(blast_file, sep='\t', header = None)
-	except pandas.errors.EmptyDataError:
+	except pd.errors.EmptyDataError:
 		sys.exit("No hits obtained from tblastn, exiting program.")
 
 	tblastn_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore'}, inplace = True)
@@ -549,7 +549,7 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 	os.system(blastp_command)
 	try:
 		blastp_results = pd.read_csv(blast_file, sep='\t', header = None)
-	except pandas.errors.EmptyDataError:
+	except pd.errors.EmptyDataError:
 		sys.exit("No hits obtained from blastp, exiting program.")
 	blastp_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
 	
@@ -620,10 +620,9 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes):
 	queries = set(blastp_df['qseqid'])
 	peptides_to_keep = []
 	for query in queries:
-		df_subset = blastp_df.loc[blastp_df['qseqid'] == query][blastp_df.columns]
-		print(df_subset)
-		for index, row in df_subset.iterrows():
-			query_taxid = row['staxids']
+		query_taxids_list = set(blastp_df.loc[blastp_df['qseqid'] == query]['staxids'])
+		print(query_taxids_list)
+		for query_taxid in query_taxids_list:
 			if ';' in query_taxid:
 				taxids_list = query_taxid.split(';')
 				query_taxid = None
