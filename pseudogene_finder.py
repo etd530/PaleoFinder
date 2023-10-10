@@ -38,7 +38,7 @@ from Bio import Align, AlignIO # to work with alignments
 import os                      # to send Linux commands
 import pandas as pd            # to work with dataframes
 import glob                    # to nicely list files from directories
-import time # DELETE
+import sys                     # to exit with error messages or fine
 
 #### FUNS ####
 def make_blast_db(genome):
@@ -82,7 +82,11 @@ def tblastn(query, target, wordsize, matrix, max_evalue, seg_filter, threads, ou
 	else:
 		print("WARNING: tBLASTn results found at " + blast_file + ". Skipping tBLASTN step.")
 	
-	tblastn_results = pd.read_csv(blast_file, sep='\t', header = None)
+	try:
+		tblastn_results = pd.read_csv(blast_file, sep='\t', header = None)
+	except pandas.errors.EmptyDataError:
+		sys.exit("No hits obtained from tblastn, exiting program.")
+
 	tblastn_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore'}, inplace = True)
 	
 	return(tblastn_results)
@@ -204,7 +208,6 @@ def align_peptides_simple(protein, peptide):
 			fh.write('>fragment_peptide\n%s\n' % peptide)
 		# NOTE: THIS LINE WILL NOT WORK WITHOUT USERS ADDING THE PROGRAM TO THE PATH, NEED TO SEE HOW TO FIX THIS
 		os.system('lalign36 -O lalign.aln -m 3 -3 -C 20 -Q -q seqa.fa seqb.fa > lalign.log')
-		os.system('cat lalign.aln')
 		status = os.system('num1=`egrep -c "^>" lalign.aln`; num2=2; [ $num1 -eq $num2 ]')
 		if not status:
 			os.system('''cat lalign.aln | head -n -10 | tail -n +20 > pairwise_seqs.fa && \
@@ -544,7 +547,10 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 		blast_file = blast_file.replace(' ', '_')
 		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
 	os.system(blastp_command)
-	blastp_results = pd.read_csv(blast_file, sep='\t', header = None)
+	try:
+		blastp_results = pd.read_csv(blast_file, sep='\t', header = None)
+	except pandas.errors.EmptyDataError:
+		sys.exit("No hits obtained from blastp, exiting program.")
 	blastp_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
 	
 	return(blastp_results)
@@ -571,16 +577,68 @@ def is_child(query_taxid, parent_taxid, taxdb_nodes):
 			return(False)
 	return(True)
 
+def find_lca(taxid1, taxid2, taxdb_nodes):
+	"""
+	Fins last common ancestor taxid between two query taxids.
+
+	Arguments:
+		taxid1: the first query taxid
+		taxid2: the second query taxid
+		taxdb_nodes: path to the nodes.dmp file of the NCBI Taxonomy database
+
+	Returns:
+		The taxid of the closest parent in common to both of the query taxids.
+	"""
+	if not os.path.isfile(taxdb_nodes + '.collapsed'):
+		os.system("sed -E 's/\t//g' "+ taxdb_nodes +" | cut -f1,2,3 -d'|' | sed -E 's/\|/,/g' > " + taxdb_nodes + ".collapsed")
+	taxdb = pd.read_csv(taxdb_nodes + '.collapsed', sep=',', header = None)
+	taxdb.rename(columns={0: 'node', 1: 'parent', 2: 'rank'}, inplace = True)
+	path1 = [taxid1]
+	path2 = [taxid2]
+	while taxid1 not in path2 and taxid2 not in path1:
+		taxid1 = taxdb['parent'][taxdb['node'] == taxid1].iloc[0]
+		taxid2 = taxdb['parent'][taxdb['node'] == taxid2].iloc[0]
+		path1.append(taxid1)
+		path2.append(taxid2)
+	if taxid1 in path2:
+		return(taxid1)
+	else:
+		return(taxid2)
+
+
 def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes):
 	"""
 	Filter the output of blastp based on the taxonomic assignment of the hits.
+
+	Arguments:
+		blastp_df: Pandas dataframe containing the results of BLASTP.
+		parent_taxid: taxid of the taxon to which the hits should belong.
+		taxdb_nodes: path to the nodes.dmp file of the NCBI Taxonomy database.
+
+	Returns: a Pandas dataframe with the results of BLASTP for those queries with at least one hit belonging to the parent_taxid clade.
 	"""
-	rows_to_keep = []
-	for index, row in blastp_df.iterrows():
-		query_taxid = row['staxids']
-		if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb_nodes = taxdb_nodes):
-			rows_to_keep.append(index)
-	blastp_subset_df = blastp_df.loc[rows_to_keep][range(0, len(blastp_df.columns))]
+	queries = set(blastp_df['qseqid'])
+	peptides_to_keep = []
+	for query in queries:
+		df_subset = blastp_df.loc[blastp_df['qseqid'] == query][blastp_df.columns]
+		print(df_subset)
+		for index, row in df_subset.iterrows():
+			query_taxid = row['staxids']
+			if ';' in query_taxid:
+				taxids_list = query_taxid.split(';')
+				query_taxid = None
+				while len(taxids_list):
+					if query_taxid is None:
+						query_taxid = taxids_list.pop()
+					else:
+						taxid1 = query_taxid
+						taxid2 = taxids_list.pop()
+						query_taxid = find_lca(int(taxid1), int(taxid2), taxdb_nodes)
+			if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb_nodes = taxdb_nodes):
+				print('Has hits belonging to Nudiviridae')
+				peptides_to_keep.append(query)
+				break
+		blastp_subset_df = blastp_df.loc[blastp_df['qseqid'].isin(peptides_to_keep)][blastp_df.columns]
 	return(blastp_subset_df)
 
 
@@ -791,6 +849,6 @@ if __name__ == '__main__':
 				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'])
 		os.system('rm reconstructed_peptides_all.fasta')
 		if args['--verbose']:
-			print("blastp completed.\nExecution finished.")
+			sys.exit("blastp completed.\nExecution finished.")
 
 #### END ####
