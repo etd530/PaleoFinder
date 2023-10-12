@@ -5,10 +5,10 @@
 Reconstruct highly degraded pseudogenes by means of sliding window-based subsequent alignments from a seed alignment.
 
 Usage: 
-	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --diamond --diamond_block_size=FLT --parent_taxid=INT] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py tblastn --proteins=FASTA --genome=FASTA [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --outprefix=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py extend --proteins=FASTA --genome=FASTA --tblastn_output=STR [--outprefix=STR] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT --parent_taxid=INT] [-v|--verbose] [-h|--help]
 
     Options:
         -p, --proteins FASTA                      Input query proteins for that serve as reference to find pseudogenes, in FASTA format. Can contain multiple sequences
@@ -26,6 +26,7 @@ Usage:
         --blastp_threads INT                      Number of threads to use for blastp search [default: 10].
         --diamond                                 Use diamond instead of NCBI's blastp for the final validation.
         --diamond_block_size FLT                  Block size to use for diamond; note diamond will use up to about 6 times this value in GBs of RAM [default: 2]
+        --parent_taxid INT                        Taxid from NCBI's Taxonomy database specifying a taxa to which the blastp hits are expected to belong [default: 1].
         -o, --outprefix STR                       Prefix to use for output files [default: pseudogene_finder].
         -v, --verbose                             Print the progressions of the program to the terminal (Standard Error).
         -h, --help                                Show this help message and exit.
@@ -518,7 +519,7 @@ def peptides2fasta(reconstructed_peptides):
 		peptide_sequences_list.append(full_seq)
 	return peptide_sequences_list
 
-def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, block_size, diamond = False):
+def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, block_size, diamond = False, parent_taxid = None):
 	"""
 	Run blastp of the reconstructed peptide sequences against a protein database.
 
@@ -553,6 +554,11 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 		sys.exit("No hits obtained from blastp, exiting program.")
 	blastp_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
 	
+	if parent_taxid != 1:
+		blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".filtered_taxid" + str(parent_taxid) +".out"
+		blastp_results = filter_blastp_output(blastp_results, parent_taxid, 'nodes.dmp.collapsed')
+		blastp_results.to_csv(blast_file, sep = '\t')
+
 	return(blastp_results)
 
 def is_child(query_taxid, parent_taxid, taxdb_nodes):
@@ -605,7 +611,6 @@ def find_lca(taxid1, taxid2, taxdb_nodes):
 	else:
 		return(taxid2)
 
-
 def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes):
 	"""
 	Filter the output of blastp based on the taxonomic assignment of the hits.
@@ -623,6 +628,8 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes):
 		query_taxids_list = set(blastp_df.loc[blastp_df['qseqid'] == query]['staxids'])
 		print(query_taxids_list)
 		for query_taxid in query_taxids_list:
+			query_taxid = str(query_taxid)
+			print(query_taxid)
 			if ';' in query_taxid:
 				taxids_list = query_taxid.split(';')
 				query_taxid = None
@@ -633,6 +640,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes):
 						taxid1 = query_taxid
 						taxid2 = taxids_list.pop()
 						query_taxid = find_lca(int(taxid1), int(taxid2), taxdb_nodes)
+			print(query_taxid)
 			if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb_nodes = taxdb_nodes):
 				print('Has hits belonging to Nudiviridae')
 				peptides_to_keep.append(query)
