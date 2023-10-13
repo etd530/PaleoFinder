@@ -556,7 +556,7 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 	
 	if parent_taxid != 1:
 		blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".filtered_taxid" + str(parent_taxid) +".out"
-		blastp_results = filter_blastp_output(blastp_results, parent_taxid, 'nodes.dmp.collapsed')
+		blastp_results = filter_blastp_output(blastp_results, parent_taxid, os.path.dirname(__file__).strip('.') + 'nodes.dmp.collapsed')
 		blastp_results.to_csv(blast_file, sep = '\t')
 
 	return(blastp_results)
@@ -655,7 +655,12 @@ if __name__ == '__main__':
 	
 	#### PARSE ARGS ####
 	args = docopt(__doc__)
+	try:
+		args['--parent_taxid'] = int(args['--parent_taxid'])
+	except ValueError:
+		sys.exit('ERROR: Please make sure --parent_taxid is an integer.')
 	print(args)
+
 
 	#### MAIN ####
 	#### SUBCOMMAND 1: tblastn ####
