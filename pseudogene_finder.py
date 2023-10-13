@@ -40,6 +40,7 @@ import os                      # to send Linux commands
 import pandas as pd            # to work with dataframes
 import glob                    # to nicely list files from directories
 import sys                     # to exit with error messages or fine
+import numpy as np             # to do fast array maths
 
 #### FUNS ####
 def make_blast_db(genome):
@@ -624,12 +625,15 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes):
 	"""
 	queries = set(blastp_df['qseqid'])
 	peptides_to_keep = []
+	alien_indexes = {}
 	for query in queries:
-		query_taxids_list = set(blastp_df.loc[blastp_df['qseqid'] == query]['staxids'])
-		print(query_taxids_list)
-		for query_taxid in query_taxids_list:
-			query_taxid = str(query_taxid)
-			print(query_taxid)
+		correct_taxa = False
+		df_subset = blastp_df.loc[blastp_df['qseqid'] == query]
+		belonging_query_min_eval = -1
+		nonbelonging_query_min_eval = -1
+		for index, row in df_subset.iterrows():
+			query_taxid = str(row['qseqid'])
+			query_hit_evalue = float(row['evalue'])
 			if ';' in query_taxid:
 				taxids_list = query_taxid.split(';')
 				query_taxid = None
@@ -640,14 +644,17 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes):
 						taxid1 = query_taxid
 						taxid2 = taxids_list.pop()
 						query_taxid = find_lca(int(taxid1), int(taxid2), taxdb_nodes)
-			print(query_taxid)
 			if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb_nodes = taxdb_nodes):
-				print('Has hits belonging to Nudiviridae')
-				peptides_to_keep.append(query)
-				break
+				correct_taxa = True
+				if belonging_query_min_eval == -1 or belonging_query_min_eval > query_hit_evalue:
+					belonging_query_min_eval = query_hit_evalue
+			elif nonbelonging_query_min_eval == -1 or nonbelonging_query_min_eval > query_hit_evalue:
+				nonbelonging_query_min_eval = query_hit_evalue
+		alien_indexes[query] = np.log10(nonbelonging_query_min_eval) - np.log10(belonging_query_min_eval)
+		if correct_taxa:
+			peptides_to_keep.append(query)
 		blastp_subset_df = blastp_df.loc[blastp_df['qseqid'].isin(peptides_to_keep)][blastp_df.columns]
-	return(blastp_subset_df)
-
+	return(blastp_subset_df, alien_indexes)
 
 
 if __name__ == '__main__':
@@ -861,6 +868,7 @@ if __name__ == '__main__':
 				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], parent_taxid = args['--parent_taxid'])
 		os.system('rm reconstructed_peptides_all.fasta')
 		if args['--verbose']:
-			sys.exit("blastp completed.\nExecution finished.")
+			print("blastp completed.\nExecution finished.")
+			sys.exit()
 
 #### END ####
