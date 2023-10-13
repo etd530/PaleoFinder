@@ -853,7 +853,7 @@ if __name__ == '__main__':
 				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], diamond = True, parent_taxid = args['--parent_taxid'])
 		else:
 			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
-				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', parent_taxid = args['--parent_taxid'])
+				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], parent_taxid = args['--parent_taxid'])
 		os.system('rm reconstructed_peptides_all.fasta')
 		if args['--verbose']:
 			sys.exit("blastp completed.\nExecution finished.")
