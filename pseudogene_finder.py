@@ -519,7 +519,7 @@ def peptides2fasta(reconstructed_peptides):
 		peptide_sequences_list.append(full_seq)
 	return peptide_sequences_list
 
-def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, block_size, diamond = False, parent_taxid = None):
+def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, block_size, diamond = False, parent_taxid = 1):
 	"""
 	Run blastp of the reconstructed peptide sequences against a protein database.
 
@@ -850,10 +850,10 @@ if __name__ == '__main__':
 		os.system('rm -f reconstructed_peptides_all.fasta && for file in fasta_files/*.reconstructed_peptides.fasta; do cat $file >> reconstructed_peptides_all.fasta; done')
 		if args['--diamond']:
 			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
-				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], diamond = True)
+				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], diamond = True, parent_taxid = args['--parent_taxid'])
 		else:
 			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
-				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'])
+				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', parent_taxid = args['--parent_taxid'])
 		os.system('rm reconstructed_peptides_all.fasta')
 		if args['--verbose']:
 			sys.exit("blastp completed.\nExecution finished.")
