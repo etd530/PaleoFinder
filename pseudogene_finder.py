@@ -5,10 +5,11 @@
 Reconstruct highly degraded pseudogenes by means of sliding window-based subsequent alignments from a seed alignment.
 
 Usage: 
-	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --diamond --diamond_block_size=FLT --parent_taxid=INT] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR --parent_taxid=INT [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py tblastn --proteins=FASTA --genome=FASTA [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --outprefix=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py extend --proteins=FASTA --genome=FASTA --tblastn_output=STR [--outprefix=STR] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT --parent_taxid=INT] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py filter_blastp --blastp_output=STR --parent_taxid=INT
 
     Options:
         -p, --proteins FASTA                      Input query proteins for that serve as reference to find pseudogenes, in FASTA format. Can contain multiple sequences
@@ -24,9 +25,10 @@ Usage:
         --blastp_matrix STR                       Alignment scoring matrix to use for blastp [default: BLOSUM62].
         --blastp_max_evalue FLT                   Maximum e-value to keep a hit in the blastp search [default: 0.2].
         --blastp_threads INT                      Number of threads to use for blastp search [default: 10].
+        --blastp_output STR                       Name of the file containing the blastp/diamond output to filter.
         --diamond                                 Use diamond instead of NCBI's blastp for the final validation.
         --diamond_block_size FLT                  Block size to use for diamond; note diamond will use up to about 6 times this value in GBs of RAM [default: 2]
-        --parent_taxid INT                        Taxid from NCBI's Taxonomy database specifying a taxa to which the blastp hits are expected to belong [default: 1].
+        --parent_taxid INT                        Taxid from NCBI's Taxonomy database specifying a taxa to which the blastp hits are expected to belong. Required to filter the blastp output by taxonomic identity.
         -o, --outprefix STR                       Prefix to use for output files [default: pseudogene_finder].
         -v, --verbose                             Print the progressions of the program to the terminal (Standard Error).
         -h, --help                                Show this help message and exit.
@@ -521,7 +523,7 @@ def peptides2fasta(reconstructed_peptides):
 		peptide_sequences_list.append(full_seq)
 	return peptide_sequences_list
 
-def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, block_size, diamond = False, parent_taxid = 1):
+def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, block_size, diamond = False):
 	"""
 	Run blastp of the reconstructed peptide sequences against a protein database.
 
@@ -558,12 +560,6 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 	except pd.errors.EmptyDataError:
 		sys.exit("No hits obtained from blastp, exiting program.")
 	blastp_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
-	
-	if parent_taxid != 1:
-		blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".filtered_taxid" + str(parent_taxid) +".out"
-		blastp_results = filter_blastp_output(blastp_results, parent_taxid, os.path.dirname(__file__).strip('.') + '/nodes.dmp.collapsed', os.path.dirname(__file__).strip('.') + '/merged.dmp.collapsed')
-		blastp_results.to_csv(blast_file, sep = '\t')
-
 	return(blastp_results)
 
 def is_child(query_taxid, parent_taxid, taxdb_nodes, taxdb_merged):
@@ -887,7 +883,7 @@ if __name__ == '__main__':
 	if args['extend']:
 		if args['--verbose']:
 			print('Seed extension phase completed.\nExecution finished.')
-		exit()
+		sys.exit()
 
 	if args['blastp'] or args['runall']:
 		if args['--verbose']:
@@ -896,10 +892,26 @@ if __name__ == '__main__':
 		os.system('rm -f reconstructed_peptides_all.fasta && for file in fasta_files/*.reconstructed_peptides.fasta; do cat $file >> reconstructed_peptides_all.fasta; done')
 		if args['--diamond']:
 			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
-				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], diamond = True, parent_taxid = args['--parent_taxid'])
+				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], diamond = True)
 		else:
 			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
-				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], parent_taxid = args['--parent_taxid'])
+				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'])
+
+	if args['blastp']:
+		if args['--verbose']:
+			print("BLASTp completed.\nExecution finished.")
+		sys.exit()
+
+	if args['filter_blastp']:
+		blastp_output = pd.read_csv(args['--blastp_output'], sep='\t', header = None)
+		blastp_output.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
+
+	if args['filter_blastp'] or args['runall']:		
+		if args['--parent_taxid'] != 1:
+			# blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".filtered_taxid" + str(parent_taxid) +".out"
+			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp.collapsed', os.path.dirname(__file__).strip('.') + '/merged.dmp.collapsed')
+			blastp_results.to_csv(blast_file, sep = '\t')
+
 		os.system('rm reconstructed_peptides_all.fasta')
 		if args['--verbose']:
 			print("blastp completed.\nExecution finished.")
