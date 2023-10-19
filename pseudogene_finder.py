@@ -548,7 +548,10 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 		blast_file = outprefix + ".blastp.wordsize" + wordsize + "." + matrix + ".evalue" + max_evalue + ".out"
 		blast_file = blast_file.replace(' ', '_')
 		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
-	os.system(blastp_command)
+	if not os.path.exists(blast_file):
+		os.system(blastp_command)
+	else:
+		print("WARNING: BLASTp/Diamond results found at " + blast_file + ". Skipping BLASTp/Diamond step.")
 	try:
 		blastp_results = pd.read_csv(blast_file, sep='\t', header = None)
 	except pd.errors.EmptyDataError:
@@ -557,7 +560,7 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 	
 	if parent_taxid != 1:
 		blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".filtered_taxid" + str(parent_taxid) +".out"
-		blastp_results = filter_blastp_output(blastp_results, parent_taxid, os.path.dirname(__file__).strip('.') + 'nodes.dmp.collapsed')
+		blastp_results = filter_blastp_output(blastp_results, parent_taxid, os.path.dirname(__file__).strip('.') + '/nodes.dmp.collapsed')
 		blastp_results.to_csv(blast_file, sep = '\t')
 
 	return(blastp_results)
@@ -574,9 +577,7 @@ def is_child(query_taxid, parent_taxid, taxdb_nodes):
 	Returns:
 		A Boolean value indicating whether or not query_taxid is a child node of parent_taxid.
 	"""
-	if not os.path.isfile(taxdb_nodes + '.collapsed'):
-		os.system("sed -E 's/\t//g' "+ taxdb_nodes +" | cut -f1,2,3 -d'|' | sed -E 's/\|/,/g' > " + taxdb_nodes + ".collapsed")
-	taxdb = pd.read_csv(taxdb_nodes + '.collapsed', sep=',', header = None)
+	taxdb = pd.read_csv(taxdb_nodes, sep=',', header = None, dtype = {0: 'int', 1: 'int', 2: 'str'})
 	taxdb.rename(columns={0: 'node', 1: 'parent', 2: 'rank'}, inplace = True)
 	while query_taxid != parent_taxid:
 		query_taxid = taxdb['parent'][taxdb['node'] == query_taxid].iloc[0]
@@ -596,13 +597,13 @@ def find_lca(taxid1, taxid2, taxdb_nodes):
 	Returns:
 		The taxid of the closest parent in common to both of the query taxids.
 	"""
-	if not os.path.isfile(taxdb_nodes + '.collapsed'):
-		os.system("sed -E 's/\t//g' "+ taxdb_nodes +" | cut -f1,2,3 -d'|' | sed -E 's/\|/,/g' > " + taxdb_nodes + ".collapsed")
-	taxdb = pd.read_csv(taxdb_nodes + '.collapsed', sep=',', header = None)
+	taxdb = pd.read_csv(taxdb_nodes, sep=',', header = None, dtype = {0: 'int', 1: 'int', 2: 'str'})
 	taxdb.rename(columns={0: 'node', 1: 'parent', 2: 'rank'}, inplace = True)
 	path1 = [taxid1]
 	path2 = [taxid2]
 	while taxid1 not in path2 and taxid2 not in path1:
+		print(taxid1)
+		print(taxid2)
 		taxid1 = taxdb['parent'][taxdb['node'] == taxid1].iloc[0]
 		taxid2 = taxdb['parent'][taxdb['node'] == taxid2].iloc[0]
 		path1.append(taxid1)
@@ -627,12 +628,13 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes):
 	peptides_to_keep = []
 	alien_indexes = {}
 	for query in queries:
+		print(query)
 		correct_taxa = False
 		df_subset = blastp_df.loc[blastp_df['qseqid'] == query]
 		belonging_query_min_eval = -1
 		nonbelonging_query_min_eval = -1
 		for index, row in df_subset.iterrows():
-			query_taxid = str(row['qseqid'])
+			query_taxid = str(row['staxids'])
 			query_hit_evalue = float(row['evalue'])
 			if ';' in query_taxid:
 				taxids_list = query_taxid.split(';')
