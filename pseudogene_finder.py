@@ -910,7 +910,7 @@ if __name__ == '__main__':
 		if args['--parent_taxid'] != 1:
 			# blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".filtered_taxid" + str(parent_taxid) +".out"
 			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp.collapsed', os.path.dirname(__file__).strip('.') + '/merged.dmp.collapsed')
-			blastp_results[0].to_csv(args['--blastp_output'].replace('.out', '.filtered.out'), sep = '\t')
+			blastp_results[0].to_csv(args['--blastp_output'].replace('.out', '.filtered.out'), sep = '\t', index = False)
 			print(blastp_results[1])
 
 		os.system('rm reconstructed_peptides_all.fasta')
