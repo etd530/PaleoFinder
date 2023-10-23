@@ -624,9 +624,12 @@ def find_lca(taxid1, taxid2, taxdb_nodes, taxdb_merged):
 		else:
 			path1.append(taxid1)
 		try:
+			print(taxid2)
+			print(type(taxid2))
+			print(taxdb['parent'][taxdb['node'] == taxid2])
 			taxid2 = taxdb['parent'][taxdb['node'] == taxid2].iloc[0]
 		except IndexError:
-			is_merged = os.system('grep -q' + str(taxid2) + ' ' + taxdb_merged)
+			is_merged = os.system('grep -q ^' + str(taxid2) + ', ' + taxdb_merged)
 			if is_merged:
 				merged_nodes = subprocess.run(['grep', str(taxid2) + ',', taxdb_merged], stdout = subprocess.PIPE).stdout.decode('utf-8')
 				taxid2 = merged_nodes.strip().split(',')[1]
