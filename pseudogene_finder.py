@@ -614,7 +614,7 @@ def find_lca(taxid1, taxid2, taxdb_nodes, taxdb_merged):
 		try:
 			taxid1 = taxdb['parent'][taxdb['node'] == taxid1].iloc[0]
 		except IndexError:
-			is_merged = os.system('grep -q ^' + str(taxid1) + ', ' + taxdb_nodes)
+			is_merged = os.system('grep -q ^' + str(taxid1) + ', ' + taxdb_merged)
 			if is_merged:
 				merged_nodes = subprocess.run(['grep', '^' + str(taxid1) + ',', taxdb_merged], stdout = subprocess.PIPE).stdout.decode('utf-8')
 				taxid1 = merged_nodes.strip().split(',')[1]
@@ -626,7 +626,7 @@ def find_lca(taxid1, taxid2, taxdb_nodes, taxdb_merged):
 		try:
 			taxid2 = taxdb['parent'][taxdb['node'] == taxid2].iloc[0]
 		except IndexError:
-			is_merged = os.system('grep -q' + str(taxid2) + ' ' + taxdb_nodes)
+			is_merged = os.system('grep -q' + str(taxid2) + ' ' + taxdb_merged)
 			if is_merged:
 				merged_nodes = subprocess.run(['grep', str(taxid2) + ',', taxdb_merged], stdout = subprocess.PIPE).stdout.decode('utf-8')
 				taxid2 = merged_nodes.strip().split(',')[1]
@@ -905,12 +905,17 @@ if __name__ == '__main__':
 	if args['filter_blastp']:
 		blastp_output = pd.read_csv(args['--blastp_output'], sep='\t', header = None)
 		blastp_output.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
+		blast_file = args['--blastp_output'].replace('.out', '.filtered.out')
+
+	elif args['runall'] and args['--diamond']:
+		blast_file = "reconstructed_peptides" + ".diamond_blastp." + args['--blastp_matrix'] + ".evalue" + args['--blastp_max_evalue'] + ".filtered_taxid" + args['--parent_taxid'] + ".out"
+	elif args['runall'] and not args['--diamond']:
+		blast_file = "reconstructed_peptides" + ".blastp.wordsize" + args['--blastp_wordsize'] + "." + args['--blastp_matrix'] + ".evalue" + args['--blastp_max_evalue'] + ".filtered_taxid" + args['--parent_taxid'] + ".out"
 
 	if args['filter_blastp'] or args['runall']:		
 		if args['--parent_taxid'] != 1:
-			# blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".filtered_taxid" + str(parent_taxid) +".out"
 			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp.collapsed', os.path.dirname(__file__).strip('.') + '/merged.dmp.collapsed')
-			blastp_results[0].to_csv(args['--blastp_output'].replace('.out', '.filtered.out'), sep = '\t', index = False)
+			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
 			print(blastp_results[1])
 
 		os.system('rm reconstructed_peptides_all.fasta')
