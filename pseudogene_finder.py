@@ -584,7 +584,9 @@ def is_child(query_taxid, parent_taxid, taxdb_nodes, taxdb_merged):
 			query_taxid = taxdb['parent'][taxdb['node'] == query_taxid].iloc[0]
 		except IndexError:
 			print('WARNING: taxid %s not found in nodes.tmp. Checking if it has been merged into another taxid.' % str(query_taxid))
-			is_merged = os.system('grep -q ^' + str(query_taxid) + ', ' + taxdb_merged)
+			
+			# Note that in the following line we use not because grep -q returns 0 when it DOES find a match since it is the OK exit status, not a really a boolean 0/1
+			is_merged = not os.system("grep -q '^" + str(query_taxid) + ",' " + taxdb_merged)
 			if is_merged:
 				merged_nodes = subprocess.run(['grep', '^' + str(query_taxid) + ',', taxdb_merged], stdout=subprocess.PIPE).stdout.decode('utf-8')
 				query_taxid = merged_nodes.strip().split(',')[1]
@@ -620,7 +622,9 @@ def find_lca(taxid1, taxid2, taxdb_nodes, taxdb_merged):
 			taxid1 = taxdb['parent'][taxdb['node'] == taxid1].iloc[0]
 		except IndexError:
 			print('WARNING: taxid %s not found in nodes.dmp. Checking if it has been merged into another taxid.' % str(taxid1))
-			is_merged = os.system('grep -q ^' + str(taxid1) + ', ' + taxdb_merged)
+			
+			# Note that in the following line we use not because grep -q returns 0 when it DOES find a match since it is the OK exit status, not a really a boolean 0/1
+			is_merged = not os.system('grep -q ^' + str(taxid1) + ', ' + taxdb_merged)
 			if is_merged:
 				merged_nodes = subprocess.run(['grep', '^' + str(taxid1) + ',', taxdb_merged], stdout = subprocess.PIPE).stdout.decode('utf-8')
 				taxid1 = merged_nodes.strip().split(',')[1]
@@ -636,7 +640,9 @@ def find_lca(taxid1, taxid2, taxdb_nodes, taxdb_merged):
 			taxid2 = taxdb['parent'][taxdb['node'] == taxid2].iloc[0]
 		except IndexError:
 			print('WARNING: taxid %s not found in nodes.dmp. Checking if it has been merged into another taxid.' % str(taxid2))
-			is_merged = os.system('grep -q ^' + str(taxid2) + ', ' + taxdb_merged)
+			
+			# Note that in the following line we use not because grep -q returns 0 when it DOES find a match since it is the OK exit status, not a really a boolean 0/1
+			is_merged = not os.system('grep -q ^' + str(taxid2) + ', ' + taxdb_merged)
 			if is_merged:
 				merged_nodes = subprocess.run(['grep', str(taxid2) + ',', taxdb_merged], stdout = subprocess.PIPE).stdout.decode('utf-8')
 				taxid2 = merged_nodes.strip().split(',')[1]
