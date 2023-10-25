@@ -44,6 +44,7 @@ import glob                    # to nicely list files from directories
 import sys                     # to exit with error messages or fine
 import numpy as np             # to do fast array maths
 import subprocess              # to send Linux commands and capture output
+import taxopy                  # to work with NCBI Taxonomy database
 
 #### FUNS ####
 def make_blast_db(genome):
@@ -562,101 +563,28 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 	blastp_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
 	return(blastp_results)
 
-def is_child(query_taxid, parent_taxid, taxdb_nodes, taxdb_merged):
+def is_child(query_taxid, parent_taxid, taxdb):
 	"""
 	Check if a given query taxid is indeed a child of another parent taxid.
 
 	Arguments:
 		query_taxid: taxid whose parents nodes we wish to know.
 		parent_taxid: taxid for which to check if it is a parent or not.
-		taxdb_nodes: path to the nodes.dmp file of the NCBI Taxonomy database.
+		taxdb: path to a TaxDb object from taxopy, containing the NCBI Taxonomy database.
 
 	Returns:
 		A Boolean value indicating whether or not query_taxid is a child node of parent_taxid.
 	"""
-	taxdb = pd.read_csv(taxdb_nodes, sep=',', header = None, dtype = {0: 'int', 1: 'int', 2: 'str'})
-	taxdb.rename(columns={0: 'node', 1: 'parent', 2: 'rank'}, inplace = True)
-	while query_taxid != parent_taxid:
-		try:
-			print(query_taxid)
-			print(type(query_taxid))
-			print(taxdb['parent'][taxdb['node'] == query_taxid])
-			query_taxid = taxdb['parent'][taxdb['node'] == query_taxid].iloc[0]
-		except IndexError:
-			print('WARNING: taxid %s not found in nodes.tmp. Checking if it has been merged into another taxid.' % str(query_taxid))
-			
-			# Note that in the following line we use not because grep -q returns 0 when it DOES find a match since it is the OK exit status, not a really a boolean 0/1
-			is_merged = not os.system("grep -q '^" + str(query_taxid) + ",' " + taxdb_merged)
-			if is_merged:
-				merged_nodes = subprocess.run(['grep', '^' + str(query_taxid) + ',', taxdb_merged], stdout=subprocess.PIPE).stdout.decode('utf-8')
-				query_taxid = int(merged_nodes.strip().split(',')[1])
-			else:
-				print('WARNING: taxid %s not merged into another (not found in merged.dmp). Will treat as not belonging to the specified parent taxid.' % str(query_taxid))
-				return(False)
-		if query_taxid == 1:
-			return(False)
-	return(True)
-
-def find_lca(taxid1, taxid2, taxdb_nodes, taxdb_merged):
-	"""
-	Fins last common ancestor taxid between two query taxids.
-
-	Arguments:
-		taxid1: the first query taxid
-		taxid2: the second query taxid
-		taxdb_nodes: path to the nodes.dmp file of the NCBI Taxonomy database
-		taxdb_merged: path to the merged.dmp file of the NCBI Taxonomy database
-
-	Returns:
-		The taxid of the closest parent in common to both of the query taxids.
-	"""
-	taxdb = pd.read_csv(taxdb_nodes, sep=',', header = None, dtype = {0: 'int', 1: 'int', 2: 'str'})
-	taxdb.rename(columns={0: 'node', 1: 'parent', 2: 'rank'}, inplace = True)
-	path1 = [taxid1]
-	path2 = [taxid2]
-	while taxid1 not in path2 and taxid2 not in path1:
-		try:
-			print(taxid1)
-			print(type(taxid1))
-			print(taxdb['parent'][taxdb['node'] == taxid1])
-			taxid1 = taxdb['parent'][taxdb['node'] == taxid1].iloc[0]
-		except IndexError:
-			print('WARNING: taxid %s not found in nodes.dmp. Checking if it has been merged into another taxid.' % str(taxid1))
-			
-			# Note that in the following line we use not because grep -q returns 0 when it DOES find a match since it is the OK exit status, not a really a boolean 0/1
-			is_merged = not os.system('grep -q ^' + str(taxid1) + ', ' + taxdb_merged)
-			if is_merged:
-				merged_nodes = subprocess.run(['grep', '^' + str(taxid1) + ',', taxdb_merged], stdout = subprocess.PIPE).stdout.decode('utf-8')
-				taxid1 = int(merged_nodes.strip().split(',')[1])
-			else:
-				print('WARNING: taxid %s not merged into another (not found in merged.dmp). Will take the other input taxid as the LCA of itself.' % str(taxid1))
-				return(path2[0])
-		else:
-			path1.append(taxid1)
-		try:
-			print(taxid2)
-			print(type(taxid2))
-			print(taxdb['parent'][taxdb['node'] == taxid2])
-			taxid2 = taxdb['parent'][taxdb['node'] == taxid2].iloc[0]
-		except IndexError:
-			print('WARNING: taxid %s not found in nodes.dmp. Checking if it has been merged into another taxid.' % str(taxid2))
-			
-			# Note that in the following line we use not because grep -q returns 0 when it DOES find a match since it is the OK exit status, not a really a boolean 0/1
-			is_merged = not os.system('grep -q ^' + str(taxid2) + ', ' + taxdb_merged)
-			if is_merged:
-				merged_nodes = subprocess.run(['grep', str(taxid2) + ',', taxdb_merged], stdout = subprocess.PIPE).stdout.decode('utf-8')
-				taxid2 = int(merged_nodes.strip().split(',')[1])
-			else:
-				print('WARNING: taxid %s not merged into another (not found in merged.dmp). Will take the other input taxid as the LCA of itself.' % str(taxid2))
-				return(path1[0])
-		else:
-			path2.append(taxid2)
-	if taxid1 in path2:
-		return(taxid1)
+	query_taxon = taxopy.Taxon(query_taxid, taxdb)
+	parent_taxon = taxopy.Taxon(parent_taxid, taxdb)
+	lca_taxon = taxopy.find_lca([query_taxon, parent_taxon], taxdb)
+	
+	if lca_taxon.taxid == parent_taxon.taxid:
+		return True
 	else:
-		return(taxid2)
+		return False
 
-def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes, taxdb_merged):
+def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None):
 	"""
 	Filter the output of blastp based on the taxonomic assignment of the hits.
 
@@ -664,10 +592,17 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes, taxdb_merged):
 		blastp_df: Pandas dataframe containing the results of BLASTP.
 		parent_taxid: taxid of the taxon to which the hits should belong.
 		taxdb_nodes: path to the nodes.dmp file of the NCBI Taxonomy database.
+		taxdb_names: path to the names.dmp file of the NCBI Taxonomy database
 		taxdb_merged: path to the merged.dmp file of the NCBI Taxonomy database.
 
 	Returns: a Pandas dataframe with the results of BLASTP for those queries with at least one hit belonging to the parent_taxid clade.
 	"""
+	if taxdb_nodes is not None and taxdb_names is not None and taxdb_merged is not None:
+		taxdb = taxopy.TaxDb(nodes_dpm = taxdb_nodes, names_dmp = taxdb_names, merged_dmp = taxdb_merged)
+	else try:
+		taxdb = taxopy.TaxDb
+		except taxopy.exceptions.DownloadError:
+			sys.exit("ERROR: Failed to download the NCBI Taxonomy database. We recommend downloading it manually and specifying the path to the files.")
 	queries = set(blastp_df['qseqid'])
 	peptides_to_keep = []
 	alien_indexes = {}
@@ -681,16 +616,9 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes, taxdb_merged):
 			query_taxid = str(row['staxids'])
 			query_hit_evalue = float(row['evalue'])
 			if ';' in query_taxid:
-				taxids_list = query_taxid.split(';')
-				query_taxid = None
-				while len(taxids_list):
-					if query_taxid is None:
-						query_taxid = taxids_list.pop()
-					else:
-						taxid1 = query_taxid
-						taxid2 = taxids_list.pop()
-						query_taxid = find_lca(int(taxid1), int(taxid2), taxdb_nodes, taxdb_merged)
-			if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb_nodes = taxdb_nodes, taxdb_merged = taxdb_merged):
+				taxids_list = [int(x) for x in query_taxid.split(';')]
+				query_taxid = taxopy.find_lca(taxids_list, taxdb).taxid
+			if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb):
 				correct_taxa = True
 				if belonging_query_min_eval == -1 or belonging_query_min_eval > query_hit_evalue:
 					belonging_query_min_eval = query_hit_evalue
@@ -930,7 +858,7 @@ if __name__ == '__main__':
 
 	if args['filter_blastp'] or args['runall']:		
 		if args['--parent_taxid'] != 1:
-			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp.collapsed', os.path.dirname(__file__).strip('.') + '/merged.dmp.collapsed')
+			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp')
 			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
 			print(blastp_results[1])
 
