@@ -599,8 +599,9 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 	"""
 	if taxdb_nodes is not None and taxdb_names is not None and taxdb_merged is not None:
 		taxdb = taxopy.TaxDb(nodes_dpm = taxdb_nodes, names_dmp = taxdb_names, merged_dmp = taxdb_merged)
-	else try:
-		taxdb = taxopy.TaxDb
+	else:
+		try:
+			taxdb = taxopy.TaxDb
 		except taxopy.exceptions.DownloadError:
 			sys.exit("ERROR: Failed to download the NCBI Taxonomy database. We recommend downloading it manually and specifying the path to the files.")
 	queries = set(blastp_df['qseqid'])
