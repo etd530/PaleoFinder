@@ -589,7 +589,7 @@ def is_child(query_taxid, parent_taxid, taxdb_nodes, taxdb_merged):
 			is_merged = not os.system("grep -q '^" + str(query_taxid) + ",' " + taxdb_merged)
 			if is_merged:
 				merged_nodes = subprocess.run(['grep', '^' + str(query_taxid) + ',', taxdb_merged], stdout=subprocess.PIPE).stdout.decode('utf-8')
-				query_taxid = merged_nodes.strip().split(',')[1]
+				query_taxid = int(merged_nodes.strip().split(',')[1])
 			else:
 				print('WARNING: taxid %s not merged into another (not found in merged.dmp). Will treat as not belonging to the specified parent taxid.' % str(query_taxid))
 				return(False)
@@ -627,7 +627,7 @@ def find_lca(taxid1, taxid2, taxdb_nodes, taxdb_merged):
 			is_merged = not os.system('grep -q ^' + str(taxid1) + ', ' + taxdb_merged)
 			if is_merged:
 				merged_nodes = subprocess.run(['grep', '^' + str(taxid1) + ',', taxdb_merged], stdout = subprocess.PIPE).stdout.decode('utf-8')
-				taxid1 = merged_nodes.strip().split(',')[1]
+				taxid1 = int(merged_nodes.strip().split(',')[1])
 			else:
 				print('WARNING: taxid %s not merged into another (not found in merged.dmp). Will take the other input taxid as the LCA of itself.' % str(taxid1))
 				return(path2[0])
@@ -645,7 +645,7 @@ def find_lca(taxid1, taxid2, taxdb_nodes, taxdb_merged):
 			is_merged = not os.system('grep -q ^' + str(taxid2) + ', ' + taxdb_merged)
 			if is_merged:
 				merged_nodes = subprocess.run(['grep', str(taxid2) + ',', taxdb_merged], stdout = subprocess.PIPE).stdout.decode('utf-8')
-				taxid2 = merged_nodes.strip().split(',')[1]
+				taxid2 = int(merged_nodes.strip().split(',')[1])
 			else:
 				print('WARNING: taxid %s not merged into another (not found in merged.dmp). Will take the other input taxid as the LCA of itself.' % str(taxid2))
 				return(path1[0])
