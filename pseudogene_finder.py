@@ -598,7 +598,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 	Returns: a Pandas dataframe with the results of BLASTP for those queries with at least one hit belonging to the parent_taxid clade.
 	"""
 	if taxdb_nodes is not None and taxdb_names is not None and taxdb_merged is not None:
-		taxdb = taxopy.TaxDb(nodes_dpm = taxdb_nodes, names_dmp = taxdb_names, merged_dmp = taxdb_merged)
+		taxdb = taxopy.TaxDb(nodes_dmp = taxdb_nodes, names_dmp = taxdb_names, merged_dmp = taxdb_merged)
 	else:
 		try:
 			taxdb = taxopy.TaxDb
