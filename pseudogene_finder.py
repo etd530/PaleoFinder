@@ -618,6 +618,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 			query_hit_evalue = float(row['evalue'])
 			if ';' in query_taxid:
 				taxids_list = [int(x) for x in query_taxid.split(';')]
+				taxa_list = [taxopy.Taxon(x, taxdb) for x in taxids_list]
 				query_taxid = taxopy.find_lca(taxids_list, taxdb).taxid
 			if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb):
 				correct_taxa = True
