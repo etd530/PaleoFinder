@@ -854,6 +854,9 @@ if __name__ == '__main__':
 			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
 				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'])
 
+		# Remove file with all sequences concatenated which is not needed
+		os.system('rm -f reconstructed_peptides_all.fasta')
+
 	if args['blastp']:
 		if args['--verbose']:
 			print("BLASTp completed.\nExecution finished.")
@@ -875,9 +878,8 @@ if __name__ == '__main__':
 			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
 			print(blastp_results[1])
 
-		os.system('rm reconstructed_peptides_all.fasta')
 		if args['--verbose']:
-			print("blastp completed.\nExecution finished.")
+			print("Filtering of BLASTP results completed.\nExecution finished.")
 			sys.exit()
 
 #### END ####
