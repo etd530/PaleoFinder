@@ -865,9 +865,9 @@ if __name__ == '__main__':
 		blast_file = args['--blastp_output'].replace('.out', '.filtered.out')
 
 	elif args['runall'] and args['--diamond']:
-		blast_file = "reconstructed_peptides" + ".diamond_blastp." + args['--blastp_matrix'] + ".evalue" + args['--blastp_max_evalue'] + ".filtered_taxid" + args['--parent_taxid'] + ".out"
+		blast_file = "reconstructed_peptides" + ".diamond_blastp." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
 	elif args['runall'] and not args['--diamond']:
-		blast_file = "reconstructed_peptides" + ".blastp.wordsize" + args['--blastp_wordsize'] + "." + args['--blastp_matrix'] + ".evalue" + args['--blastp_max_evalue'] + ".filtered_taxid" + args['--parent_taxid'] + ".out"
+		blast_file = "reconstructed_peptides" + ".blastp.wordsize" + str(args['--blastp_wordsize']) + "." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
 
 	if args['filter_blastp'] or args['runall']:		
 		if args['--parent_taxid'] != 1:
