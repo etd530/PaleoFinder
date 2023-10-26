@@ -595,7 +595,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 		taxdb_names: path to the names.dmp file of the NCBI Taxonomy database
 		taxdb_merged: path to the merged.dmp file of the NCBI Taxonomy database.
 
-	Returns: a Pandas dataframe with the results of BLASTP for those queries with at least one hit belonging to the parent_taxid clade.
+	Returns: a Pandas dataframe with the results of BLASTP for those queries with at least one hit belonging to the parent_taxid clade, and a second dataframe with a summary of the BLASTP results for those queries.
 	"""
 	if taxdb_nodes is not None and taxdb_names is not None and taxdb_merged is not None:
 		taxdb = taxopy.TaxDb(nodes_dmp = taxdb_nodes, names_dmp = taxdb_names, merged_dmp = taxdb_merged)
@@ -607,12 +607,19 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 	queries = set(blastp_df['qseqid'])
 	peptides_to_keep = []
 	alien_indexes = {}
+	blastp_summary = pd.DataFrame(date = None, index = [*range(len(queries))], columns = ['query', 'belonging_hits_count', 'nonbelonging_hits_count', 
+		'belonging_min_eval', 'nonbelonging_min_eval', 'alien_index'], dtype = {'query': 'str', 'belonging_hits_count': 'int', 
+		'nonbelonging_hits_count': 'int', 'belonging_min_eval': 'float', 'nonbelonging_min_eval': 'float', 'alien_index': 'float'})
+	current_index = 0
 	for query in queries:
 		print(query)
+		blastp_summary['query'][current_index] = query
 		correct_taxa = False
 		df_subset = blastp_df.loc[blastp_df['qseqid'] == query]
 		belonging_query_min_eval = -1
 		nonbelonging_query_min_eval = -1
+		belonging_hits_count = 0
+		nonbelonging_hits_count = 0
 		for index, row in df_subset.iterrows():
 			query_taxid = str(row['staxids'])
 			query_hit_evalue = float(row['evalue'])
@@ -622,10 +629,17 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 				query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
 			if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb):
 				correct_taxa = True
+				belonging_hits_count += 1
 				if belonging_query_min_eval == -1 or belonging_query_min_eval > query_hit_evalue:
 					belonging_query_min_eval = query_hit_evalue
-			elif nonbelonging_query_min_eval == -1 or nonbelonging_query_min_eval > query_hit_evalue:
-				nonbelonging_query_min_eval = query_hit_evalue
+			else:
+				nonbelonging_hits_count += 1
+				if nonbelonging_query_min_eval == -1 or nonbelonging_query_min_eval > query_hit_evalue:
+					nonbelonging_query_min_eval = query_hit_evalue
+		blastp_summary['belonging_hits_count'][current_index] = belonging_hits_count
+		blastp_summary['nonbelonging_hits_count'][current_index] = nonbelonging_hits_count
+		blastp_summary['belonging_min_eval'][current_index] = belonging_query_min_eval
+		blastp_summary['nonbelonging_min_eval'][current_index] = nonbelonging_query_min_eval
 		if nonbelonging_query_min_eval == -1:
 			alien_indexes[query] = np.inf
 		elif belonging_query_min_eval == -1:
@@ -638,9 +652,12 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 			alien_indexes[query] = np.inf
 		else:
 			alien_indexes[query] = np.log10(nonbelonging_query_min_eval) - np.log10(belonging_query_min_eval)
+		blastp_summary['alien_index'][current_index] = alien_indexes[query]
 		if correct_taxa and alien_indexes[query] > 0:
 			peptides_to_keep.append(query)
 		blastp_subset_df = blastp_df.loc[blastp_df['qseqid'].isin(peptides_to_keep)][blastp_df.columns]
+		current_index += 1
+	blastp_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
 	return(blastp_subset_df, alien_indexes)
 
 
