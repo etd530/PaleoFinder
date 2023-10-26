@@ -607,7 +607,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 	queries = set(blastp_df['qseqid'])
 	peptides_to_keep = []
 	alien_indexes = {}
-	blastp_summary = pd.DataFrame(date = None, index = [*range(len(queries))], columns = ['query', 'belonging_hits_count', 'nonbelonging_hits_count', 
+	blastp_summary = pd.DataFrame(data = None, index = [*range(len(queries))], columns = ['query', 'belonging_hits_count', 'nonbelonging_hits_count', 
 		'belonging_min_eval', 'nonbelonging_min_eval', 'alien_index'], dtype = {'query': 'str', 'belonging_hits_count': 'int', 
 		'nonbelonging_hits_count': 'int', 'belonging_min_eval': 'float', 'nonbelonging_min_eval': 'float', 'alien_index': 'float'})
 	current_index = 0
