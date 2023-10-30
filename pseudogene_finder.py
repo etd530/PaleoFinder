@@ -5,11 +5,11 @@
 Reconstruct highly degraded pseudogenes by means of sliding window-based subsequent alignments from a seed alignment.
 
 Usage: 
-	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR --parent_taxid=INT [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR --parent_taxid=INT [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --diamond --diamond_block_size=FLT --excluded_taxids=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py tblastn --proteins=FASTA --genome=FASTA [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --outprefix=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py extend --proteins=FASTA --genome=FASTA --tblastn_output=STR [--outprefix=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py filter_blastp --blastp_output=STR --parent_taxid=INT [-v|--verbose] [-h|--help]
+	pseudogene_finder.py filter_blastp --blastp_output=STR --parent_taxid=INT [--excluded_taxids=STR] [-v|--verbose] [-h|--help]
 
     Options:
         -p, --proteins FASTA                      Input query proteins for that serve as reference to find pseudogenes, in FASTA format. Can contain multiple sequences
@@ -29,6 +29,7 @@ Usage:
         --diamond                                 Use diamond instead of NCBI's blastp for the final validation.
         --diamond_block_size FLT                  Block size to use for diamond; note diamond will use up to about 6 times this value in GBs of RAM [default: 2]
         --parent_taxid INT                        Taxid from NCBI's Taxonomy database specifying a taxa to which the blastp hits are expected to belong. Required to filter the blastp output by taxonomic identity.
+        --excluded_taxids STR                     Comma-separated list of taxids to exclude from the blastp results.
         -o, --outprefix STR                       Prefix to use for output files [default: pseudogene_finder].
         -v, --verbose                             Print the progressions of the program to the terminal (Standard Error).
         -h, --help                                Show this help message and exit.
@@ -584,7 +585,7 @@ def is_child(query_taxid, parent_taxid, taxdb):
 	else:
 		return False
 
-def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None):
+def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = None):
 	"""
 	Filter the output of blastp based on the taxonomic assignment of the hits.
 
@@ -604,6 +605,8 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 			taxdb = taxopy.TaxDb
 		except taxopy.exceptions.DownloadError:
 			sys.exit("ERROR: Failed to download the NCBI Taxonomy database. We recommend downloading it manually and specifying the path to the files.")
+	# remove hits to the excluded taxids_list
+	blastp_df = blastp_df.loc[blastp_df['staxids'].isin(excluded_taxids_list)][blastp_df.columns]
 	queries = set(blastp_df['qseqid'])
 	peptides_to_keep = []
 	alien_indexes = {}
@@ -669,6 +672,7 @@ if __name__ == '__main__':
 	args = docopt(__doc__)
 	try:
 		args['--parent_taxid'] = int(args['--parent_taxid'])
+		args['--excluded_taxids'] = args['--excluded_taxids'].split(',')
 	except ValueError:
 		sys.exit('ERROR: Please make sure --parent_taxid is an integer.')
 	print(args)
@@ -892,7 +896,7 @@ if __name__ == '__main__':
 
 	if args['filter_blastp'] or args['runall']:		
 		if args['--parent_taxid'] != 1:
-			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp')
+			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
 			print(blastp_results[1])
 
