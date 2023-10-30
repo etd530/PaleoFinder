@@ -606,7 +606,9 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 		except taxopy.exceptions.DownloadError:
 			sys.exit("ERROR: Failed to download the NCBI Taxonomy database. We recommend downloading it manually and specifying the path to the files.")
 	# remove hits to the excluded taxids_list
-	blastp_df = blastp_df.loc[blastp_df['staxids'].isin(excluded_taxids_list)][blastp_df.columns]
+	if excluded_taxids_list is not None:
+		print(excluded_taxids_list)
+		blastp_df = blastp_df.loc[blastp_df['staxids'].isin(excluded_taxids_list)][blastp_df.columns]
 	queries = set(blastp_df['qseqid'])
 	peptides_to_keep = []
 	alien_indexes = {}
@@ -672,7 +674,7 @@ if __name__ == '__main__':
 	args = docopt(__doc__)
 	try:
 		args['--parent_taxid'] = int(args['--parent_taxid'])
-		args['--excluded_taxids'] = args['--excluded_taxids'].split(',')
+		args['--excluded_taxids'] = [int(x) for x in args['--excluded_taxids'].split(',')]
 	except ValueError:
 		sys.exit('ERROR: Please make sure --parent_taxid is an integer.')
 	print(args)
