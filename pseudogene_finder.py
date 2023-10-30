@@ -626,9 +626,13 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 				query_hit_evalue = float(row['evalue'])
 				if ';' in query_taxid:
 					taxids_list = [int(x) for x in query_taxid.split(';') if x not in excluded_taxids_list] # make sure this taxid is not of the ones we want to exclude
-					if len(taxids_list): # make sure we still have some taxids to look for
+					if len(taxids_list) > 1: # make sure we still have some taxids to look for
 						taxa_list = [taxopy.Taxon(x, taxdb) for x in taxids_list]
 						query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
+					elif len(taxids_list) == 1:
+						query_taxid = taxids_list[0]
+					else:
+						continue
 				if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb):
 					correct_taxa = True
 					belonging_hits_count += 1
