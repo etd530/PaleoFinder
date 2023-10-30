@@ -625,7 +625,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 			if query_taxid not in excluded_taxids_list: # make sure this taxid is not of the ones we want to exclude
 				query_hit_evalue = float(row['evalue'])
 				if ';' in query_taxid:
-					taxids_list = [int(x) for x in query_taxid.split(';') if int(x) not in excluded_taxids_list] # make sure this taxid is not of the ones we want to exclude
+					taxids_list = [int(x) for x in query_taxid.split(';') if x not in excluded_taxids_list] # make sure this taxid is not of the ones we want to exclude
 					if len(taxids_list): # make sure we still have some taxids to look for
 						taxa_list = [taxopy.Taxon(x, taxdb) for x in taxids_list]
 						query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
@@ -672,7 +672,7 @@ if __name__ == '__main__':
 	args = docopt(__doc__)
 	try:
 		args['--parent_taxid'] = int(args['--parent_taxid'])
-		args['--excluded_taxids'] = [int(x) for x in args['--excluded_taxids'].split(',')]
+		args['--excluded_taxids'] = [x for x in args['--excluded_taxids'].split(',')]
 	except ValueError:
 		sys.exit('ERROR: Please make sure --parent_taxid is an integer.')
 	print(args)
