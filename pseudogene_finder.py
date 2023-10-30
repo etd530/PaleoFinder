@@ -585,7 +585,7 @@ def is_child(query_taxid, parent_taxid, taxdb):
 	else:
 		return False
 
-def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = None):
+def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = []):
 	"""
 	Filter the output of blastp based on the taxonomic assignment of the hits.
 
@@ -605,10 +605,6 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 			taxdb = taxopy.TaxDb
 		except taxopy.exceptions.DownloadError:
 			sys.exit("ERROR: Failed to download the NCBI Taxonomy database. We recommend downloading it manually and specifying the path to the files.")
-	# remove hits to the excluded taxids_list
-	if excluded_taxids_list is not None:
-		print(excluded_taxids_list)
-		blastp_df = blastp_df.loc[blastp_df['staxids'].isin(excluded_taxids_list)][blastp_df.columns]
 	queries = set(blastp_df['qseqid'])
 	peptides_to_keep = []
 	alien_indexes = {}
@@ -626,20 +622,22 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 		nonbelonging_hits_count = 0
 		for index, row in df_subset.iterrows():
 			query_taxid = str(row['staxids'])
-			query_hit_evalue = float(row['evalue'])
-			if ';' in query_taxid:
-				taxids_list = [int(x) for x in query_taxid.split(';')]
-				taxa_list = [taxopy.Taxon(x, taxdb) for x in taxids_list]
-				query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
-			if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb):
-				correct_taxa = True
-				belonging_hits_count += 1
-				if belonging_query_min_eval == -1 or belonging_query_min_eval > query_hit_evalue:
-					belonging_query_min_eval = query_hit_evalue
-			else:
-				nonbelonging_hits_count += 1
-				if nonbelonging_query_min_eval == -1 or nonbelonging_query_min_eval > query_hit_evalue:
-					nonbelonging_query_min_eval = query_hit_evalue
+			if query_taxid not in excluded_taxids_list: # make sure this taxid is not of the ones we want to exclude
+				query_hit_evalue = float(row['evalue'])
+				if ';' in query_taxid:
+					taxids_list = [int(x) for x in query_taxid.split(';') if int(x) not in excluded_taxids_list] # make sure this taxid is not of the ones we want to exclude
+					if len(taxids_list): # make sure we still have some taxids to look for
+						taxa_list = [taxopy.Taxon(x, taxdb) for x in taxids_list]
+						query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
+				if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb):
+					correct_taxa = True
+					belonging_hits_count += 1
+					if belonging_query_min_eval == -1 or belonging_query_min_eval > query_hit_evalue:
+						belonging_query_min_eval = query_hit_evalue
+				else:
+					nonbelonging_hits_count += 1
+					if nonbelonging_query_min_eval == -1 or nonbelonging_query_min_eval > query_hit_evalue:
+						nonbelonging_query_min_eval = query_hit_evalue
 		blastp_summary['belonging_hits_count'][current_index] = belonging_hits_count
 		blastp_summary['nonbelonging_hits_count'][current_index] = nonbelonging_hits_count
 		blastp_summary['belonging_min_eval'][current_index] = belonging_query_min_eval
