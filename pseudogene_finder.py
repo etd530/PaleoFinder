@@ -658,6 +658,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 		if correct_taxa and alien_indexes[query] > 0:
 			peptides_to_keep.append(query)
 		blastp_subset_df = blastp_df.loc[blastp_df['qseqid'].isin(peptides_to_keep)][blastp_df.columns]
+		blastp_subset_df = blastp_subset_df.loc[~blastp_subset_df['staxid'].isin(excluded_taxids_list)][blastp_subset_df.columns]
 		current_index += 1
 	blastp_summary.to_csv('reconstructed_peptides_all.blastp.summary.tsv', sep = '\t', index = False)
 	blastp_filtered_summary = blastp_summary[blastp_summary.columns][blastp_summary['alien_index'] > 0]
