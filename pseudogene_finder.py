@@ -556,7 +556,7 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 	else:
 		blast_file = outprefix + ".blastp.wordsize" + wordsize + "." + matrix + ".evalue" + max_evalue + ".out"
 		blast_file = blast_file.replace(' ', '_')
-		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
+		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sallacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
 	if not os.path.exists(blast_file):
 		os.system(blastp_command)
 	else:
