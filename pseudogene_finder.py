@@ -260,11 +260,11 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 	"""
 
 	order += 1
-	print('INITIAL GENOMIC COORDINATES:')
-	print(candidate_peptide[0])
-	print(candidate_peptide[1])
-	print('FRAGMENT SIZE:')
-	print(fragment_size)
+	# print('INITIAL GENOMIC COORDINATES:')
+	# print(candidate_peptide[0])
+	# print(candidate_peptide[1])
+	# print('FRAGMENT SIZE:')
+	# print(fragment_size)
 	# Get coordinates of next fragment to evaluate (1-based indexing since these are BLAST coordinates)
 	if direction == 'downstream':
 		if candidate_peptide[0] < candidate_peptide[1]:
@@ -281,9 +281,9 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 		else:
 			next_fragment_start = candidate_peptide[1] - 1
 			next_fragment_end = candidate_peptide[1] - fragment_size
-	print('INITIAL COORDINATES OF NEXT FRAGMENT:')
-	print(next_fragment_start)
-	print(next_fragment_end)
+	# print('INITIAL COORDINATES OF NEXT FRAGMENT:')
+	# print(next_fragment_start)
+	# print(next_fragment_end)
 	# check if the next fragment would be within the scaffold, and not outside (i.e. if the scaffold has at least 90/300bp left)
 	# UPDATE THIS TO CREATE A SHORTER FRAGMENT INSTEAD OF JUST NOT DOING ANYTHING WIHT THE SCAFFOLD EXTREMES
 	if 0 < next_fragment_start <= len(scaffold) and 0 < next_fragment_end <= len(scaffold) and next:
@@ -299,15 +299,15 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 
 		# Align each peptide to the protein homolog, evaluate the alignment and if it is good, append the fragment
 		for index in range(0, len(peptides_list)):
-			print('TESTING PEPTIDE:')
-			print(peptides_list[index])
-			print('PEPTIDE LENGTH:')
-			print(len(peptides_list[index]))
-			if len(peptides_list) > 1:
-				print('PEPTIDE FRAME: ' + str(index))
-			else:
-				print('PEPTIDE FRAME: ' + str(reading_frame))
-			print('PEPTIDE ORDER: ' + str(order))
+			# print('TESTING PEPTIDE:')
+			# print(peptides_list[index])
+			# print('PEPTIDE LENGTH:')
+			# print(len(peptides_list[index]))
+			# if len(peptides_list) > 1:
+			# 	print('PEPTIDE FRAME: ' + str(index))
+			# else:
+			# 	print('PEPTIDE FRAME: ' + str(reading_frame))
+			# print('PEPTIDE ORDER: ' + str(order))
 			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index])
 			# print(alignment)
 
@@ -346,7 +346,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 				# if doing local alignment, the output only contains the subsequences that align correctly, so we need to locate the homolog subsequence in the sequence of the full homolog and transform the coordinates
 				if fragment_size == 300:
 						aligned_region = alignment[0].seq
-						print(alignment[1].seq.replace('-', ''))
+						# print(alignment[1].seq.replace('-', ''))
 						homolog_start = protein_homolog.seq.find(aligned_region.replace('-', '')) + 1 # add one since we are doing 1-based indexing
 						homolog_end = homolog_start + len(aligned_region) - 1
 
@@ -385,12 +385,12 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 					# print(end)
 					percent_identity = 100*identical_positions/(end - start + 1)
 					
-					print('PERCENT IDENTITY:')
-					print(percent_identity)
-					print('START IN HOMOLOG:')
-					print(homolog_start)
-					print('END IN HOMOLOG:')
-					print(homolog_end)
+					# print('PERCENT IDENTITY:')
+					# print(percent_identity)
+					# print('START IN HOMOLOG:')
+					# print(homolog_start)
+					# print('END IN HOMOLOG:')
+					# print(homolog_end)
 
 					# If the fragment passes the thresholds, get the final coordinates and create the fragment entry for the list
 					if contiguous and percent_identity > 20:
@@ -412,14 +412,14 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 							else:
 								corrected_start = next_fragment_start - 2
 								corrected_end = next_fragment_end + 1
-						print('CODING FRAME:')
-						print(index)
-						print('CORRECTED GENOMIC COORDINATES FOR THE FRAME:')
-						print(corrected_start)
-						print(corrected_end)
+						# print('CODING FRAME:')
+						# print(index)
+						# print('CORRECTED GENOMIC COORDINATES FOR THE FRAME:')
+						# print(corrected_start)
+						# print(corrected_end)
 						# then if fragment size is 300, it means we did a local alignment, so we need the coordinates for the part that got aligned in the homolog, as well as extracting the peptide subsequence
 						if fragment_size == 300:
-							print('FRAGMENT WAS ASSESSED BY LOCAL ALIGNMENT')
+							# print('FRAGMENT WAS ASSESSED BY LOCAL ALIGNMENT')
 							# extract peptide subsequence
 							aligned_region = alignment[1].seq
 							aligned_region = aligned_region.replace('-', '')
@@ -431,16 +431,16 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 							aligned_region_len = len(aligned_region)
 							peptide_end_gap = len(peptides_list[index]) - peptide_head_gap - aligned_region_len
 							aligned_nucleotide_len = len(aligned_region)*3
-							print('LENGTH OF PORTION OF PEPTIDE THAT ALIGNS:')
-							print(aligned_region_len)
-							print('LENGTH OF AMINOACIDS NOT ALIGNED IN THE N-TERMINAL:')
-							print(peptide_head_gap)
-							print('LENGTH OF AMINOACIDS NOT ALIGNED IN THE C-TERMINAL:')
-							print(peptide_end_gap)
+							# print('LENGTH OF PORTION OF PEPTIDE THAT ALIGNS:')
+							# print(aligned_region_len)
+							# print('LENGTH OF AMINOACIDS NOT ALIGNED IN THE N-TERMINAL:')
+							# print(peptide_head_gap)
+							# print('LENGTH OF AMINOACIDS NOT ALIGNED IN THE C-TERMINAL:')
+							# print(peptide_end_gap)
 
 							# Correct again the genomic coordinates considering only the short fragment that aligns of the initial 300bp; needs to accound for sense/antisense
 							if candidate_peptide[0] < candidate_peptide[1]:
-								print("PEPTIDE IS ON THE SENSE STRAND:")
+								# print("PEPTIDE IS ON THE SENSE STRAND:")
 								nucleotide_head_gap = 3*peptide_head_gap
 								corrected_start = corrected_start + nucleotide_head_gap
 								corrected_end = corrected_start + aligned_nucleotide_len - 1
@@ -449,22 +449,22 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 								next_fragment_aligned_region = next_fragment.reverse_complement()[aligned_nucleotide_start:aligned_nucleotide_end]
 
 							else:
-								print("PEPTIDE IS ON THE ANTI-SENSE STRAND:")
+								# print("PEPTIDE IS ON THE ANTI-SENSE STRAND:")
 								nucleotide_head_gap = 3*peptide_end_gap
 								corrected_end = corrected_end + nucleotide_head_gap
 								corrected_start = corrected_end + aligned_nucleotide_len - 1
 								aligned_nucleotide_start = corrected_start - next_fragment_start # note that we should add +1 BUT since we use this to subset for Python, and which is 0-based and we are using 1-based, we would have to subtract 1, so we save that step
 								aligned_nucleotide_end = corrected_end - next_fragment_end # same as previous line
 								next_fragment_aligned_region = next_fragment.reverse_complement()[aligned_nucleotide_end:aligned_nucleotide_start]
-							print("LENGTH OF NUCLEOTIDES NOT ALIGNED IN THE 5':")
-							print(nucleotide_head_gap)
-							print("GENOMIC COORDINATES CORRECTED FOR THE ALIGNED FRAGMENT:")
-							print(corrected_start)
-							print(corrected_end)
-							print("DNA FRAGMENT CORRESPONDING TO THE ALIGN PORTION OF THE PEPTIDE:")
-							print(next_fragment_aligned_region)
-							print("TRANSLATION TO CHECK IT WORKS OK:")
-							print(next_fragment_aligned_region.translate())
+							# print("LENGTH OF NUCLEOTIDES NOT ALIGNED IN THE 5':")
+							# print(nucleotide_head_gap)
+							# print("GENOMIC COORDINATES CORRECTED FOR THE ALIGNED FRAGMENT:")
+							# print(corrected_start)
+							# print(corrected_end)
+							# print("DNA FRAGMENT CORRESPONDING TO THE ALIGN PORTION OF THE PEPTIDE:")
+							# print(next_fragment_aligned_region)
+							# print("TRANSLATION TO CHECK IT WORKS OK:")
+							# print(next_fragment_aligned_region.translate())
 						
 						# then build the list with the attributes of the fragment to yield # NEED TO UPDATE THIS TO GIVE START AND END INVERTED IF ON ANTISENSE STRAND
 						if fragment_size == 90:
@@ -479,24 +479,28 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 
 			 		# If it does not pass the thresholds AND we have NOT done local alignment yet, start the 300bp local alignment step
 					elif do_local:
-						print("Peptide not good. Starting round of local alignment")
+						# print("Peptide not good. Starting round of local alignment")
 						yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
 							protein_homolog = protein_homolog, direction = direction, order = order - 1, fragment_size = 300, do_local = False, reading_frame = index)
 					else:
-						print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
+						# print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
+						pass
 				
 				# if homolog start is not assigned, it means no positions were aligned at all, do 300 step IF not tried yet
 				elif do_local:
-					print("Peptide not good. Starting round of local alignment")
+					# print("Peptide not good. Starting round of local alignment")
 					yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
 						protein_homolog = protein_homolog, direction = direction, order = order - 1, fragment_size = 300, do_local = False, reading_frame = index)
 				else:
-					print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
+					# print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
+					pass
 
 			else:
-				print("No local alignment produced for this sequence, it will not be added to the peptide")
+				# print("No local alignment produced for this sequence, it will not be added to the peptide")
+				pass
 	else:
-		print('INFO: Skipping this peptide, it would be outside the bounds of the scaffold. If this happened with the seed, there will be no alignment output.')
+		# print('INFO: Skipping this peptide, it would be outside the bounds of the scaffold. If this happened with the seed, there will be no alignment output.')
+		pass
 
 def peptides2fasta(reconstructed_peptides):
 	"""
@@ -513,7 +517,7 @@ def peptides2fasta(reconstructed_peptides):
 		full_seq = ''
 		previous_end_in_homolog = None
 		for fragment in peptide:
-			print(fragment)
+			# print(fragment)
 			aa_seq = fragment[3]
 			start_in_homolog = fragment[4]
 			if previous_end_in_homolog is not None:
@@ -676,10 +680,15 @@ if __name__ == '__main__':
 	#### PARSE ARGS ####
 	args = docopt(__doc__)
 	try:
-		args['--parent_taxid'] = int(args['--parent_taxid'])
 		args['--excluded_taxids'] = [x for x in args['--excluded_taxids'].split(',')]
 	except ValueError:
 		sys.exit('ERROR: Please make sure --parent_taxid is an integer.')
+	except AttributeError:
+		pass
+	try:
+		args['--parent_taxid'] = int(args['--parent_taxid'])
+	except TypeError:
+		pass
 	print(args)
 
 
@@ -715,7 +724,6 @@ if __name__ == '__main__':
 		# The rest of steps are done protein homolog by protein homolog
 		with open(args['--proteins']) as proteins_fh:
 			for protein in FastaIO.FastaIterator(proteins_fh):
-				id_num = 0 # id to use later to track the number of peptides per homologous protein in thr GFF files
 				protein_id = protein.id
 				if '[' in protein_id or ']' in protein_id or '=' in protein_id or '(' in protein_id or ')' in protein_id:
 					print("WARNING: protein name contains special characters. They have been replaced. Please make sure this is not a problem and if so change your protein IDs manually")
@@ -755,51 +763,53 @@ if __name__ == '__main__':
 					fh.write('##gff-version 3\n')
 					with open('fasta_files/' + args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.fasta', 'w') as fh_seqs:
 						for scaffold, scaffold_candidate_peptides in primary_seeds.items():
+							id_num = 0 # id to use later to track the number of peptides per homologous protein and scaffold in the GFF files
 							# fh.write(scaffold + '\n')
 							print('SCAFFOLD: ' + scaffold)
 							scaffold_seq = get_scaffold_from_fasta(args['--genome'], scaffold)
 							# print(len(scaffold_seq))
 							for candidate_peptide in scaffold_candidate_peptides: # here candidate peptides means seeds
-								# id_num += 1
+								print("SEED:")
+								print(candidate_peptide)
 								reconstructed_peptides_downstream = []
 								reconstructed_peptides_upstream = []
 								reconstructed_peptides_downstream.append(candidate_peptide)
 								reconstructed_peptides_upstream.append([])
 								peptide_index = scaffold_candidate_peptides.index(candidate_peptide)
-								print('CANDIDATE PEPTIDE SEED: ')
-								print(candidate_peptide)
-								print('EXTENDING DOWNSTREAM OF THE GENOME:')
+								# print('CANDIDATE PEPTIDE SEED: ')
+								# print(candidate_peptide)
+								# print('EXTENDING DOWNSTREAM OF THE GENOME:')
 
 								for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'downstream', order = 0):
-									print('Yielded peptide tuple is: ')
-									print(peptide_tuple)
+									# print('Yielded peptide tuple is: ')
+									# print(peptide_tuple)
 									# check the order and based on the length of the already built peptide duplicate or not
 									new_peptide = peptide_tuple[0]
 									order = peptide_tuple[1]
-									print('downstream peptides:')
-									print(reconstructed_peptides_downstream)
-									print('Length of last downstream peptide: ' + str(len(reconstructed_peptides_downstream[-1])))
+									# print('downstream peptides:')
+									# print(reconstructed_peptides_downstream)
+									# print('Length of last downstream peptide: ' + str(len(reconstructed_peptides_downstream[-1])))
 									if len(reconstructed_peptides_downstream[-1]) == order:
-										print('Adding new fragment at the end of last peptide.')
+										# print('Adding new fragment at the end of last peptide.')
 										reconstructed_peptides_downstream[-1].append(new_peptide)
-										print('downstream peptides now like this: ')
-										print(reconstructed_peptides_downstream)
-										print('upstream peptides now like this: ')
-										print(reconstructed_peptides_upstream)
+										# print('downstream peptides now like this: ')
+										# print(reconstructed_peptides_downstream)
+										# print('upstream peptides now like this: ')
+										# print(reconstructed_peptides_upstream)
 
 									elif len(reconstructed_peptides_downstream[-1]) > order:
-										print('Adding new peptide with the same fragments up to order of new one.')
+										# print('Adding new peptide with the same fragments up to order of new one.')
 										reconstructed_peptides_downstream.append(reconstructed_peptides_downstream[-1][0:order] + [new_peptide])
-										print('downstream peptides now like this: ')
-										print(reconstructed_peptides_downstream)
-										print('upstream peptides now like this: ')
-										print(reconstructed_peptides_upstream)
+										# print('downstream peptides now like this: ')
+										# print(reconstructed_peptides_downstream)
+										# print('upstream peptides now like this: ')
+										# print(reconstructed_peptides_upstream)
 								os.system('mv alignments/pairwise_seqs.tmp.fa alignments/' + protein_id + '_' + scaffold + '_candidate_peptide_' + str(peptide_index) + '_downstream.aln.fa')
-								print('EXTENDING UPSTREAM OF THE GENOME:')
+								# print('EXTENDING UPSTREAM OF THE GENOME:')
 								
 								for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'upstream', order = 0):
-									print('Yielded peptide tuple is:')
-									print(peptide_tuple)
+									# print('Yielded peptide tuple is:')
+									# print(peptide_tuple)
 									# check the order and based on the length of the already built peptide duplicate or not
 									new_peptide = peptide_tuple[0]
 									order = peptide_tuple[1]
@@ -816,9 +826,9 @@ if __name__ == '__main__':
 
 								# Combine the upstream and downstream parts of the peptides together
 								reconstructed_peptides_complete = []
-								print('RECONSTRUCTED PEPTIDES (BOTH SIDES): ')
-								print(reconstructed_peptides_upstream)
-								print(reconstructed_peptides_downstream)
+								print('RECONSTRUCTED PEPTIDES (FRAGMENTED): ')
+								# print(reconstructed_peptides_upstream)
+								# print(reconstructed_peptides_downstream)
 								for upstream_peptide in reconstructed_peptides_upstream:
 									for downstream_peptide in reconstructed_peptides_downstream:
 										if upstream_peptide is not None:
@@ -833,11 +843,10 @@ if __name__ == '__main__':
 									this_peptide = reconstructed_peptides_complete[index]
 									if this_peptide[0][0] > this_peptide[0][1]:
 										reconstructed_peptides_complete[index].reverse()
-							
+								print(reconstructed_peptides_complete)
 								# Write reconstructed peptides to a file (temporary, output will be formatted as GFF and FASTA later on)
-								# id_num = 0
+								id_num_gff = id_num # rest this to the same value as id_num
 								for peptide in reconstructed_peptides_complete:
-									id_num += 1
 									fragment_num = 0
 									for fragment in peptide:
 										fragment_num += 1
@@ -849,18 +858,24 @@ if __name__ == '__main__':
 											genomic_start = fragment[1]
 											genomic_end = fragment[0]
 											strand = '-'
-										attributes = 'ID=pseudogene_%s;fragment=fragment_%s' % (str(id_num), str(fragment_num))
+										attributes = 'ID=pseudogene_%s;fragment=fragment_%s' % (str(id_num_gff), str(fragment_num))
 										gff_string = '\t'.join([scaffold, '.', 'pseudogene', str(genomic_start), str(genomic_end), '.', 
 											strand, '.', attributes])
 										fh.write(str(gff_string) + '\n')
+									id_num_gff += 1 # since there can be more than one peptide per seed, we also increase here for each peptide reconstructed from a given seed, but we increase locally because we need to keep the previous count for the FASTA output
 								
 								# Write reconstructed peptide sequences to FASTA file:
 								peptide_sequences = peptides2fasta(reconstructed_peptides_complete)	
+								print('RECONSTRUCTED PEPTIDES (JOINED SEQUENCES):')
+								print(peptide_sequences)
+								print('NUMBER OF PEPTIDE SEQUENCES:')
+								print(len(peptide_sequences))
 								for index in range(0, len(peptide_sequences)):
 									peptide = peptide_sequences[index]
-									line = '>%s.%s.pseudopeptide_candidate_%s\n%s\n' % (scaffold, protein_id, str(index), peptide)
+									line = '>%s.%s.pseudopeptide_candidate_%s\n%s\n' % (scaffold, protein_id, str(index+id_num), peptide)
 									fh_seqs.write(line)
-
+								# now this will start a new seed potentially in the same scaffold and homologous peptide, so we increase by one just in case
+								id_num += 1
 		# Remove temporary files used for alignments
 		os.system('rm *.fa && rm lalign.aln && rm lalign.log')
 	
