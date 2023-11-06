@@ -907,7 +907,7 @@ if __name__ == '__main__':
 	if args['filter_blastp']:
 		blastp_output = pd.read_csv(args['--blastp_output'], sep='\t', header = None, dtype = {14: 'str'}) # specify str for staxids because there can be more than one seprated by semicolons
 		blastp_output.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
-		blast_file = args['--blastp_output'].replace('.out', '.filtered.out')
+		blast_file = args['--blastp_output'].replace('.out', '.filtered' + str(args['--parent_taxid']) + '.out')
 
 	elif args['runall'] and args['--diamond']:
 		blast_file = "reconstructed_peptides" + ".diamond_blastp." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
