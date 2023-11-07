@@ -616,7 +616,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 		'belonging_min_eval', 'nonbelonging_min_eval', 'alien_index'])
 	current_index = 0
 	for query in queries:
-		print(query)
+		# print(query)
 		blastp_summary['query'][current_index] = query
 		correct_taxa = False
 		df_subset = blastp_df.loc[blastp_df['qseqid'] == query]
@@ -682,17 +682,52 @@ def subset_fasta(blastp_filtered_summary):
 		blastp_filtered_summary: Pandas dataframe containing the fitered blastp results.
 
 	Returns:
-		None. Write the FASTA files to disk.
+		None. Writes the FASTA files to disk.
 	"""
 	os.system("mkdir -p filtered_peptides_fasta")
 	seqids2keep = list(blastp_filtered_summary['qseqid'])
 	files_list = glob.glob('extended_peptides_all_fasta/*.fasta')
 	for file in files_list:
+		file_string = ''
 		with open(file, 'r') as fh:
+			for sequence in FastaIO.FastaIterator(fh):
+				if sequence.id in seqids2keep:
+					file_string = file_string + ">%s\n%s\n" % (sequence.id, sequence.seq)
+		if len(file_string) > 0:
 			with open(file.replace('.fasta', '.filtered.fasta').replace('extended_peptides_all_fasta', 'filtered_peptides_fasta'), 'w') as wh:
-				for sequence in FastaIO.FastaIterator(fh):
-					if sequence.id in seqids2keep:
-						wh.write(">%s\n%s\n" % (sequence.id, sequence.seq))
+				wh.write(file_string)
+
+def subset_gff(blastp_filtered_summary):
+	"""
+	Write new GFF files containing only those peptides that pass the filtering thresholds.
+
+	Arguments:
+		blastp_filtered_summary: Pandas dataframe containing the fitered blastp results.
+
+	Returns:
+		None. Writes the GFF files to disk.
+	"""
+	os.system("mkdir -p filtered_peptides_gff")
+	seqids2keep = list(blastp_filtered_summary['qseqid'])
+	files_list = glob.glob('extended_peptides_all_gff/*.gff')
+	for file in files_list:
+		file_string = ''
+		with open(file, 'r') as fh:
+			for line in fh:
+				print(line)
+				if line.startswith('##'):
+					file_string = file_string + line
+				else:
+					gff_entry = line.strip().split('\t')
+					peptide_number = gff_entry[8].split(';')[0].replace('ID=pseudogene_', '')
+					peptide_name = gff_entry[0] + file.replace('extended_peptides_all_gff/', '').replace('pseudogene_finder', '').replace('reconstructed_peptides.gff', '') + 'pseudopeptide_candidate_' + peptide_number
+					print(peptide_name)
+					if peptide_name in seqids2keep:
+						file_string = file_string + line
+		if file_string != '##gff-version 3\n':
+			with open(file.replace('.gff', '.filtered.gff').replace('extended_peptides_all_gff', 'filtered_peptides_gff'), 'w') as wh:
+				wh.write(file_string)
+
 
 
 if __name__ == '__main__':
@@ -779,8 +814,8 @@ if __name__ == '__main__':
 				# AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
 
 				# Conduct seed extension
-				os.system('mkdir -p alignments && mkdir -p extended_peptides_all_fasta && mkdir -p gff_files')
-				with open('gff_files/' + args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.gff', 'w') as fh:
+				os.system('mkdir -p alignments && mkdir -p extended_peptides_all_fasta && mkdir -p extended_peptides_all_gff')
+				with open('extended_peptides_all_gff/' + args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.gff', 'w') as fh:
 					fh.write('##gff-version 3\n')
 					with open('extended_peptides_all_fasta/' + args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.fasta', 'w') as fh_seqs:
 						for scaffold, scaffold_candidate_peptides in primary_seeds.items():
@@ -937,9 +972,12 @@ if __name__ == '__main__':
 
 	if args['filter_blastp'] or args['runall']:		
 		if args['--parent_taxid'] != 1:
+			if args['--verbose']:
+				print("Filtering BLASTp output...")
 			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
 			subset_fasta(blastp_results[0])
+			subset_gff(blastp_results[0])
 
 		if args['--verbose']:
 			print("Filtering of BLASTP results completed.\nExecution finished.")
