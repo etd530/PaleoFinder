@@ -650,10 +650,10 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 		blastp_summary['nonbelonging_hits_count'][current_index] = nonbelonging_hits_count
 		blastp_summary['belonging_min_eval'][current_index] = belonging_query_min_eval
 		blastp_summary['nonbelonging_min_eval'][current_index] = nonbelonging_query_min_eval
-		if nonbelonging_query_min_eval == -1:
-			alien_indexes[query] = np.inf
-		elif belonging_query_min_eval == -1:
+		if belonging_query_min_eval == -1:
 			alien_indexes[query] = -np.inf
+		elif nonbelonging_query_min_eval == -1:
+			alien_indexes[query] = np.inf
 		elif nonbelonging_query_min_eval == 0 and belonging_query_min_eval == 0:
 			alien_indexes[query] = 0
 		elif nonbelonging_query_min_eval == 0:
@@ -672,6 +672,27 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 	blastp_filtered_summary = blastp_summary[blastp_summary.columns][blastp_summary['alien_index'] > 0]
 	blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
 	return(blastp_subset_df, alien_indexes)
+
+
+def subset_fasta(blastp_filtered_summary):
+	"""
+	Write new FASTA files contaiing only those peptides that pass the filtering thresholds.
+
+	Arguments:
+		blastp_filtered_summary: Pandas dataframe containing the fitered blastp results.
+
+	Returns:
+		None. Write the FASTA files to disk.
+	"""
+	os.system("mkdir -p filtered_peptides_fasta")
+	seqids2keep = list(blastp_filtered_summary['qseqid'])
+	files_list = glob.glob('extended_peptides_all_fasta/*.fasta')
+	for file in files_list:
+		with open(file, 'r') as fh:
+			with open(file.replace('.fasta', '.filtered.fasta').replace('extended_peptides_all_fasta', 'filtered_peptides_fasta'), 'w') as wh:
+				for sequence in FastaIO.FastaIterator(fh):
+					if sequence.id in seqids2keep:
+						wh.write(">%s\n%s\n" % (sequence.id, sequence.seq))
 
 
 if __name__ == '__main__':
@@ -758,10 +779,10 @@ if __name__ == '__main__':
 				# AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
 
 				# Conduct seed extension
-				os.system('mkdir -p alignments && mkdir -p fasta_files && mkdir -p gff_files')
+				os.system('mkdir -p alignments && mkdir -p extended_peptides_all_fasta && mkdir -p gff_files')
 				with open('gff_files/' + args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.gff', 'w') as fh:
 					fh.write('##gff-version 3\n')
-					with open('fasta_files/' + args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.fasta', 'w') as fh_seqs:
+					with open('extended_peptides_all_fasta/' + args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.fasta', 'w') as fh_seqs:
 						for scaffold, scaffold_candidate_peptides in primary_seeds.items():
 							id_num = 0 # id to use later to track the number of peptides per homologous protein and scaffold in the GFF files
 							# fh.write(scaffold + '\n')
@@ -888,7 +909,7 @@ if __name__ == '__main__':
 		if args['--verbose']:
 			print("Conducting BLASTp to validate the reconstructed peptides...")
 		# Run blastp validation of the reconstructed peptide sequences (putting them on a single file for speed)
-		os.system('rm -f reconstructed_peptides_all.fasta && for file in fasta_files/*.reconstructed_peptides.fasta; do cat $file >> reconstructed_peptides_all.fasta; done')
+		os.system('rm -f reconstructed_peptides_all.fasta && for file in extended_peptides_all_fasta/*.reconstructed_peptides.fasta; do cat $file >> reconstructed_peptides_all.fasta; done')
 		if args['--diamond']:
 			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
 				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], diamond = True)
@@ -907,7 +928,7 @@ if __name__ == '__main__':
 	if args['filter_blastp']:
 		blastp_output = pd.read_csv(args['--blastp_output'], sep='\t', header = None, dtype = {14: 'str'}) # specify str for staxids because there can be more than one seprated by semicolons
 		blastp_output.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
-		blast_file = args['--blastp_output'].replace('.out', '.filtered' + str(args['--parent_taxid']) + '.out')
+		blast_file = args['--blastp_output'].replace('.out', '.filtered_taxid' + str(args['--parent_taxid']) + '.out')
 
 	elif args['runall'] and args['--diamond']:
 		blast_file = "reconstructed_peptides" + ".diamond_blastp." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
@@ -918,7 +939,7 @@ if __name__ == '__main__':
 		if args['--parent_taxid'] != 1:
 			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
-			print(blastp_results[1])
+			subset_fasta(blastp_results[0])
 
 		if args['--verbose']:
 			print("Filtering of BLASTP results completed.\nExecution finished.")
