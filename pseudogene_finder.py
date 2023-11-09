@@ -549,14 +549,14 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 		blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".out"
 		blast_file = blast_file.replace(' ', '_')
 		# blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --evalue " + max_evalue + " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle staxids sscinames -b 30 -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
-		blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --max-hsps 0 --evalue " + max_evalue + " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle -b " + block_size + " -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
+		blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --max-hsps 0 --evalue " + max_evalue + " --outfmt 6 qseqid sallseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle -b " + block_size + " -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
 		# WARNING: CHANGE THE BLAST COMMAND LATER! THE GOOD ONE IS THE COMMETED OUT BUT IN THE LOCAL DB I DO NOT HAVE TAXID INFO FOR THE OUTPUT!
 		# NOTE: On Robert's pipeline they use bitscore instead of evalue to filter results: --min-score 40; to keep in mind
 		# NOTE 2: We don't have sacc on the output columns since apparantly diamond does not allow for it
 	else:
 		blast_file = outprefix + ".blastp.wordsize" + wordsize + "." + matrix + ".evalue" + max_evalue + ".out"
 		blast_file = blast_file.replace(' ', '_')
-		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sallacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
+		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid sallseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sallacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
 	if not os.path.exists(blast_file):
 		os.system(blastp_command)
 	else:
@@ -565,7 +565,7 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 		blastp_results = pd.read_csv(blast_file, sep='\t', header = None, dtype = {14: 'str'}) # specify str for staxids since there can be multiple ones separated by semicolons
 	except pd.errors.EmptyDataError:
 		sys.exit("No hits obtained from blastp, exiting program.")
-	blastp_results.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
+	blastp_results.rename(columns={0: 'qseqid', 1: 'sallseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
 	return(blastp_results)
 
 def is_child(query_taxid, parent_taxid, taxdb):
@@ -714,14 +714,14 @@ def subset_gff(blastp_filtered_summary):
 		file_string = ''
 		with open(file, 'r') as fh:
 			for line in fh:
-				print(line)
+				# print(line)
 				if line.startswith('##'):
 					file_string = file_string + line
 				else:
 					gff_entry = line.strip().split('\t')
 					peptide_number = gff_entry[8].split(';')[0].replace('ID=pseudogene_', '')
 					peptide_name = gff_entry[0] + file.replace('extended_peptides_all_gff/', '').replace('pseudogene_finder', '').replace('reconstructed_peptides.gff', '') + 'pseudopeptide_candidate_' + peptide_number
-					print(peptide_name)
+					# print(peptide_name)
 					if peptide_name in seqids2keep:
 						file_string = file_string + line
 		if file_string != '##gff-version 3\n':
@@ -781,6 +781,7 @@ if __name__ == '__main__':
 		with open(args['--proteins']) as proteins_fh:
 			for protein in FastaIO.FastaIterator(proteins_fh):
 				protein_id = protein.id
+				print('STARTING NEW PROTEIN: %s' % str(protein_id))
 				if '[' in protein_id or ']' in protein_id or '=' in protein_id or '(' in protein_id or ')' in protein_id:
 					print("WARNING: protein name contains special characters. They have been replaced. Please make sure this is not a problem and if so change your protein IDs manually")
 					protein_id = protein_id.replace('[', '')
@@ -821,11 +822,12 @@ if __name__ == '__main__':
 						for scaffold, scaffold_candidate_peptides in primary_seeds.items():
 							id_num = 0 # id to use later to track the number of peptides per homologous protein and scaffold in the GFF files
 							# fh.write(scaffold + '\n')
-							print('SCAFFOLD: ' + scaffold)
+							print('STARTING NEW SCAFFOLD: ' + scaffold)
+							print('RESETTING PEPTIDE COUNT')
 							scaffold_seq = get_scaffold_from_fasta(args['--genome'], scaffold)
 							# print(len(scaffold_seq))
 							for candidate_peptide in scaffold_candidate_peptides: # here candidate peptides means seeds
-								print("SEED:")
+								print("STARTING NEW SEED:")
 								print(candidate_peptide)
 								reconstructed_peptides_downstream = []
 								reconstructed_peptides_upstream = []
@@ -882,7 +884,7 @@ if __name__ == '__main__':
 
 								# Combine the upstream and downstream parts of the peptides together
 								reconstructed_peptides_complete = []
-								print('RECONSTRUCTED PEPTIDES (FRAGMENTED): ')
+								# print('RECONSTRUCTED PEPTIDES (FRAGMENTED): ')
 								# print(reconstructed_peptides_upstream)
 								# print(reconstructed_peptides_downstream)
 								for upstream_peptide in reconstructed_peptides_upstream:
@@ -899,7 +901,7 @@ if __name__ == '__main__':
 									this_peptide = reconstructed_peptides_complete[index]
 									if this_peptide[0][0] > this_peptide[0][1]:
 										reconstructed_peptides_complete[index].reverse()
-								print(reconstructed_peptides_complete)
+								# print(reconstructed_peptides_complete)
 								# Write reconstructed peptides to a file (temporary, output will be formatted as GFF and FASTA later on)
 								id_num_gff = id_num # rest this to the same value as id_num
 								for peptide in reconstructed_peptides_complete:
@@ -924,14 +926,15 @@ if __name__ == '__main__':
 								peptide_sequences = peptides2fasta(reconstructed_peptides_complete)	
 								print('RECONSTRUCTED PEPTIDES (JOINED SEQUENCES):')
 								print(peptide_sequences)
-								print('NUMBER OF PEPTIDE SEQUENCES:')
+								print('NUMBER OF RECONSTRUCTED PEPTIDE SEQUENCES:')
 								print(len(peptide_sequences))
 								for index in range(0, len(peptide_sequences)):
 									peptide = peptide_sequences[index]
 									line = '>%s.%s.pseudopeptide_candidate_%s\n%s\n' % (scaffold, protein_id, str(index+id_num), peptide)
 									fh_seqs.write(line)
 								# now this will start a new seed potentially in the same scaffold and homologous peptide, so we increase by one just in case
-								id_num += 1
+								print('INCREASING PEPTIDE COUNT BY: %s' % str(len(peptide_sequences) -1))
+								id_num += len(peptide_sequences) - 1
 		# Remove temporary files used for alignments
 		os.system('rm *.fa && rm lalign.aln && rm lalign.log')
 	
