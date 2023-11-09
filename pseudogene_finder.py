@@ -934,7 +934,7 @@ if __name__ == '__main__':
 									fh_seqs.write(line)
 								# now this will start a new seed potentially in the same scaffold and homologous peptide, so we increase by one just in case
 								print('INCREASING PEPTIDE COUNT BY: %s' % str(len(peptide_sequences) -1))
-								id_num += len(peptide_sequences) - 1
+								id_num += len(peptide_sequences)
 		# Remove temporary files used for alignments
 		os.system('rm *.fa && rm lalign.aln && rm lalign.log')
 	
