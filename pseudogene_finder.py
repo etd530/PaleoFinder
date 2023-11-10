@@ -924,16 +924,16 @@ if __name__ == '__main__':
 								
 								# Write reconstructed peptide sequences to FASTA file:
 								peptide_sequences = peptides2fasta(reconstructed_peptides_complete)	
-								print('RECONSTRUCTED PEPTIDES (JOINED SEQUENCES):')
-								print(peptide_sequences)
-								print('NUMBER OF RECONSTRUCTED PEPTIDE SEQUENCES:')
-								print(len(peptide_sequences))
+								# print('RECONSTRUCTED PEPTIDES (JOINED SEQUENCES):')
+								# print(peptide_sequences)
+								# print('NUMBER OF RECONSTRUCTED PEPTIDE SEQUENCES:')
+								# print(len(peptide_sequences))
 								for index in range(0, len(peptide_sequences)):
 									peptide = peptide_sequences[index]
 									line = '>%s.%s.pseudopeptide_candidate_%s\n%s\n' % (scaffold, protein_id, str(index+id_num), peptide)
 									fh_seqs.write(line)
 								# now this will start a new seed potentially in the same scaffold and homologous peptide, so we increase by one just in case
-								print('INCREASING PEPTIDE COUNT BY: %s' % str(len(peptide_sequences) -1))
+								# print('INCREASING PEPTIDE COUNT BY: %s' % str(len(peptide_sequences)))
 								id_num += len(peptide_sequences)
 		# Remove temporary files used for alignments
 		os.system('rm *.fa && rm lalign.aln && rm lalign.log')
@@ -969,9 +969,9 @@ if __name__ == '__main__':
 		blast_file = args['--blastp_output'].replace('.out', '.filtered_taxid' + str(args['--parent_taxid']) + '.out')
 
 	elif args['runall'] and args['--diamond']:
-		blast_file = "reconstructed_peptides" + ".diamond_blastp." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
+		blast_file = "reconstructed_peptides_all" + ".diamond_blastp." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
 	elif args['runall'] and not args['--diamond']:
-		blast_file = "reconstructed_peptides" + ".blastp.wordsize" + str(args['--blastp_wordsize']) + "." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
+		blast_file = "reconstructed_peptides_all" + ".blastp.wordsize" + str(args['--blastp_wordsize']) + "." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
 
 	if args['filter_blastp'] or args['runall']:		
 		if args['--parent_taxid'] != 1:
