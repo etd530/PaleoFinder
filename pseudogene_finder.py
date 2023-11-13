@@ -46,6 +46,7 @@ import sys                     # to exit with error messages or fine
 import numpy as np             # to do fast array maths
 import subprocess              # to send Linux commands and capture output
 import taxopy                  # to work with NCBI Taxonomy database
+import re                      # to work with regular expressions
 
 #### FUNS ####
 def make_blast_db(genome):
@@ -549,14 +550,14 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 		blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".out"
 		blast_file = blast_file.replace(' ', '_')
 		# blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --evalue " + max_evalue + " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle staxids sscinames -b 30 -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
-		blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --max-hsps 0 --evalue " + max_evalue + " --outfmt 6 qseqid sallseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle -b " + block_size + " -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
+		blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --max-hsps 0 --evalue " + max_evalue + " --outfmt 6 qseqid qlen sallseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle -b " + block_size + " -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
 		# WARNING: CHANGE THE BLAST COMMAND LATER! THE GOOD ONE IS THE COMMETED OUT BUT IN THE LOCAL DB I DO NOT HAVE TAXID INFO FOR THE OUTPUT!
 		# NOTE: On Robert's pipeline they use bitscore instead of evalue to filter results: --min-score 40; to keep in mind
 		# NOTE 2: We don't have sacc on the output columns since apparantly diamond does not allow for it
 	else:
 		blast_file = outprefix + ".blastp.wordsize" + wordsize + "." + matrix + ".evalue" + max_evalue + ".out"
 		blast_file = blast_file.replace(' ', '_')
-		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid sallseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sallacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
+		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid qlen sallseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore sallacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
 	if not os.path.exists(blast_file):
 		os.system(blastp_command)
 	else:
@@ -589,7 +590,7 @@ def is_child(query_taxid, parent_taxid, taxdb):
 	else:
 		return False
 
-def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = []):
+def filter_blastp_output(blastp_df, parent_taxid, homologs_lengths, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = []):
 	"""
 	Filter the output of blastp based on the taxonomic assignment of the hits.
 
@@ -612,7 +613,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 	queries = set(blastp_df['qseqid'])
 	peptides_to_keep = []
 	alien_indexes = {}
-	blastp_summary = pd.DataFrame(data = None, index = [*range(len(queries))], columns = ['query', 'belonging_hits_count', 'nonbelonging_hits_count', 
+	blastp_summary = pd.DataFrame(data = None, index = [*range(len(queries))], columns = ['query', 'length (aminoacid)', 'belonging_hits_count', 'nonbelonging_hits_count', 
 		'belonging_min_eval', 'nonbelonging_min_eval', 'alien_index'])
 	current_index = 0
 	for query in queries:
@@ -650,6 +651,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 		blastp_summary['nonbelonging_hits_count'][current_index] = nonbelonging_hits_count
 		blastp_summary['belonging_min_eval'][current_index] = belonging_query_min_eval
 		blastp_summary['nonbelonging_min_eval'][current_index] = nonbelonging_query_min_eval
+		blastp_summary['length (aminoacids)'] = df_subset['qlen'][0] # taking into accound the df_subset has hits all from same query so qlen will be the same for all rows
 		if belonging_query_min_eval == -1:
 			alien_indexes[query] = -np.inf
 		elif nonbelonging_query_min_eval == -1:
@@ -671,8 +673,24 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 	blastp_summary.to_csv('reconstructed_peptides_all.blastp.summary.tsv', sep = '\t', index = False)
 	blastp_filtered_summary = blastp_summary[blastp_summary.columns][blastp_summary['alien_index'] > 0]
 	blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
-	return(blastp_subset_df, alien_indexes)
+	return(blastp_subset_df, blastp_filtered_summary)
 
+def find_functional(homologs_length_dict, blastp_filtered_summary):
+	"""
+	Compare the candidate peptides to their homologs to establish if they are likely to be functional or pseudogenised.
+
+	Arguments:
+		homologs_length_dict: Dictionary containing the length in AA residues (value) of each protein of the closest homolog's proteome (keys).
+		blastp_filtered_summary: Pandas dataframe containing the reconstructed peptides that pass the blastp filtering step (output of filter_blastp_output)
+	"""
+	p1 = re.compile('\.pseudopeptide_candidate_[0-9]+')
+	p2 = re.compile('scaffold_[0-9]+\.')
+	for index, row in blastp_filtered_summary.iterrows():
+		current_homolog = p1.sub('', p2.sub('', row['query']))
+		current_homolog_len = homologs_length_dict[current_homolog]
+		current_peptide_len = row['length (aminoacid)']
+		if current_peptide_len/current_homolog_len >= 0.9:
+			print("Candidate peptide %s is likely functional" % row['query'])
 
 def subset_fasta(blastp_filtered_summary):
 	"""
@@ -730,6 +748,7 @@ def subset_gff(blastp_filtered_summary):
 
 
 
+
 if __name__ == '__main__':
 	__version__ = "0.5.2"
 	
@@ -778,9 +797,12 @@ if __name__ == '__main__':
 		if args['--verbose']:
 			print("Extending the peptide seeds found...")
 		# The rest of steps are done protein homolog by protein homolog
+		homologs_length_dict = {}
 		with open(args['--proteins']) as proteins_fh:
 			for protein in FastaIO.FastaIterator(proteins_fh):
 				protein_id = protein.id
+				protein_len = len(protein)
+				homologs_length_dict[protein_id] = protein_len
 				print('STARTING NEW PROTEIN: %s' % str(protein_id))
 				if '[' in protein_id or ']' in protein_id or '=' in protein_id or '(' in protein_id or ')' in protein_id:
 					print("WARNING: protein name contains special characters. They have been replaced. Please make sure this is not a problem and if so change your protein IDs manually")
@@ -977,7 +999,7 @@ if __name__ == '__main__':
 		if args['--parent_taxid'] != 1:
 			if args['--verbose']:
 				print("Filtering BLASTp output...")
-			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
+			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], protein_len, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
 			subset_fasta(blastp_results[0])
 			subset_gff(blastp_results[0])
