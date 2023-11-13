@@ -590,7 +590,7 @@ def is_child(query_taxid, parent_taxid, taxdb):
 	else:
 		return False
 
-def filter_blastp_output(blastp_df, parent_taxid, homologs_lengths, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = []):
+def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = []):
 	"""
 	Filter the output of blastp based on the taxonomic assignment of the hits.
 
@@ -801,8 +801,7 @@ if __name__ == '__main__':
 		with open(args['--proteins']) as proteins_fh:
 			for protein in FastaIO.FastaIterator(proteins_fh):
 				protein_id = protein.id
-				protein_len = len(protein)
-				homologs_length_dict[protein_id] = protein_len
+				homologs_length_dict[protein_id] = len(protein)
 				print('STARTING NEW PROTEIN: %s' % str(protein_id))
 				if '[' in protein_id or ']' in protein_id or '=' in protein_id or '(' in protein_id or ')' in protein_id:
 					print("WARNING: protein name contains special characters. They have been replaced. Please make sure this is not a problem and if so change your protein IDs manually")
@@ -999,7 +998,7 @@ if __name__ == '__main__':
 		if args['--parent_taxid'] != 1:
 			if args['--verbose']:
 				print("Filtering BLASTp output...")
-			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], protein_len, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
+			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
 			subset_fasta(blastp_results[0])
 			subset_gff(blastp_results[0])
