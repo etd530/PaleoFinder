@@ -590,7 +590,29 @@ def is_child(query_taxid, parent_taxid, taxdb):
 	else:
 		return False
 
-def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = []):
+def find_functional(homologs_length_dict, blastp_filtered_summary):
+	"""
+	Compare the candidate peptides to their homologs to establish if they are likely to be functional or pseudogenised.
+
+	Arguments:
+		homologs_length_dict: Dictionary containing the length in AA residues (value) of each protein of the closest homolog's proteome (keys).
+		blastp_filtered_summary: Pandas dataframe containing the reconstructed peptides that pass the blastp filtering step (output of filter_blastp_output)
+	"""
+	p1 = re.compile('\.pseudopeptide_candidate_[0-9]+')
+	p2 = re.compile('scaffold_[0-9]+\.')
+	homologs_length_list = []
+	length_ratios_list = []
+	for index, row in blastp_filtered_summary.iterrows():
+		current_homolog = p1.sub('', p2.sub('', row['query']))
+		current_homolog_len = int(homologs_length_dict[current_homolog])
+		current_peptide_len = int(row['length (aminoacid)'])
+		homologs_length_list.append(current_homolog_len)
+		length_ratios_list.append(current_peptide_len/current_homolog_len)
+	blastp_filtered_summary['homolog length (aminoacid)'] = homologs_length_list
+	blastp_filtered_summary['lenghts ratio'] = length_ratios_list
+	return blastp_filtered_summary
+
+def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = []):
 	"""
 	Filter the output of blastp based on the taxonomic assignment of the hits.
 
@@ -670,27 +692,11 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 		blastp_subset_df = blastp_df.loc[blastp_df['qseqid'].isin(peptides_to_keep)][blastp_df.columns]
 		blastp_subset_df = blastp_subset_df.loc[~blastp_subset_df['staxids'].isin(excluded_taxids_list)][blastp_subset_df.columns]
 		current_index += 1
+	blastp_summary = find_functional(homologs_length_dict = homologs_length_dict, blastp_filtered_summary = blastp_summary)
 	blastp_summary.to_csv('reconstructed_peptides_all.blastp.summary.tsv', sep = '\t', index = False)
 	blastp_filtered_summary = blastp_summary[blastp_summary.columns][blastp_summary['alien_index'] > 0]
 	blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
 	return(blastp_subset_df, blastp_filtered_summary)
-
-def find_functional(homologs_length_dict, blastp_filtered_summary):
-	"""
-	Compare the candidate peptides to their homologs to establish if they are likely to be functional or pseudogenised.
-
-	Arguments:
-		homologs_length_dict: Dictionary containing the length in AA residues (value) of each protein of the closest homolog's proteome (keys).
-		blastp_filtered_summary: Pandas dataframe containing the reconstructed peptides that pass the blastp filtering step (output of filter_blastp_output)
-	"""
-	p1 = re.compile('\.pseudopeptide_candidate_[0-9]+')
-	p2 = re.compile('scaffold_[0-9]+\.')
-	for index, row in blastp_filtered_summary.iterrows():
-		current_homolog = p1.sub('', p2.sub('', row['query']))
-		current_homolog_len = homologs_length_dict[current_homolog]
-		current_peptide_len = row['length (aminoacid)']
-		if current_peptide_len/current_homolog_len >= 0.9:
-			print("Candidate peptide %s is likely functional" % row['query'])
 
 def subset_fasta(blastp_filtered_summary):
 	"""
@@ -999,9 +1005,9 @@ if __name__ == '__main__':
 			if args['--verbose']:
 				print("Filtering BLASTp output...")
 			if args['--excluded_taxids'] is not None:
-				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
+				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict,, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 			else:
-				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp')
+				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp')
 			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
 			subset_fasta(blastp_results[0])
 			subset_gff(blastp_results[0])
