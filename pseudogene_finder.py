@@ -807,7 +807,6 @@ if __name__ == '__main__':
 		with open(args['--proteins']) as proteins_fh:
 			for protein in FastaIO.FastaIterator(proteins_fh):
 				protein_id = protein.id
-				homologs_length_dict[protein_id] = len(protein)
 				print('STARTING NEW PROTEIN: %s' % str(protein_id))
 				if '[' in protein_id or ']' in protein_id or '=' in protein_id or '(' in protein_id or ')' in protein_id:
 					print("WARNING: protein name contains special characters. They have been replaced. Please make sure this is not a problem and if so change your protein IDs manually")
@@ -818,7 +817,7 @@ if __name__ == '__main__':
 					protein_id = protein_id.replace('=', '_')
 					protein_id = protein_id.replace('/', '_')
 
-				
+				homologs_length_dict[protein_id] = len(protein)
 				if args['--verbose']:
 					print("Processing results for protein %s" % protein_id)
 
@@ -998,6 +997,14 @@ if __name__ == '__main__':
 		with open(args['--proteins']) as proteins_fh:
 			for protein in FastaIO.FastaIterator(proteins_fh):
 				protein_id = protein.id
+				if '[' in protein_id or ']' in protein_id or '=' in protein_id or '(' in protein_id or ')' in protein_id:
+					print("WARNING: protein name contains special characters. They have been replaced. Please make sure this is not a problem and if so change your protein IDs manually")
+					protein_id = protein_id.replace('[', '')
+					protein_id = protein_id.replace(']', '')
+					protein_id = protein_id.replace('(', '')
+					protein_id = protein_id.replace(')', '')
+					protein_id = protein_id.replace('=', '_')
+					protein_id = protein_id.replace('/', '_')
 				homologs_length_dict[protein_id] = len(protein)
 
 	elif args['runall'] and args['--diamond']:
