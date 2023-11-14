@@ -9,7 +9,7 @@ Usage:
 	pseudogene_finder.py tblastn --proteins=FASTA --genome=FASTA [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --outprefix=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py extend --proteins=FASTA --genome=FASTA --tblastn_output=STR [--outprefix=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py filter_blastp --blastp_output=STR --parent_taxid=INT [--excluded_taxids=STR] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py filter_blastp --proteins=FASTA --blastp_output=STR --parent_taxid=INT [--excluded_taxids=STR] [-v|--verbose] [-h|--help]
 
     Options:
         -p, --proteins FASTA                      Input query proteins for that serve as reference to find pseudogenes, in FASTA format. Can contain multiple sequences
@@ -994,6 +994,11 @@ if __name__ == '__main__':
 		blastp_output = pd.read_csv(args['--blastp_output'], sep='\t', header = None, dtype = {14: 'str'}) # specify str for staxids because there can be more than one seprated by semicolons
 		blastp_output.rename(columns={0: 'qseqid', 1: 'qlen', 2: 'sallseqid', 3: 'slen', 4: 'pident', 5: 'length', 6: 'mismatch', 7: 'gapopen', 8: 'qstart', 9: 'qend', 10: 'sstart', 11: 'send', 12: 'evalue', 13: 'bitscore', 14: 'sallacc', 15: 'stitle', 16: 'staxids', 17: 'sscinames'}, inplace = True)
 		blast_file = args['--blastp_output'].replace('.out', '.filtered_taxid' + str(args['--parent_taxid']) + '.out')
+		homologs_length_dict = {}
+		with open(args['--proteins']) as proteins_fh:
+			for protein in FastaIO.FastaIterator(proteins_fh):
+				protein_id = protein.id
+				homologs_length_dict[protein_id] = len(protein)
 
 	elif args['runall'] and args['--diamond']:
 		blast_file = "reconstructed_peptides_all" + ".diamond_blastp." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
