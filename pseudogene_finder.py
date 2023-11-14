@@ -1005,7 +1005,7 @@ if __name__ == '__main__':
 			if args['--verbose']:
 				print("Filtering BLASTp output...")
 			if args['--excluded_taxids'] is not None:
-				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict,, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
+				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 			else:
 				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp')
 			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
