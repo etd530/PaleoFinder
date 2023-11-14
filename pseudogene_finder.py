@@ -651,7 +651,7 @@ def filter_blastp_output(blastp_df, parent_taxid, taxdb_nodes = None, taxdb_name
 		blastp_summary['nonbelonging_hits_count'][current_index] = nonbelonging_hits_count
 		blastp_summary['belonging_min_eval'][current_index] = belonging_query_min_eval
 		blastp_summary['nonbelonging_min_eval'][current_index] = nonbelonging_query_min_eval
-		blastp_summary['length (aminoacids)'][current_index] = df_subset['qlen'][df_subset.index[0]] # taking into accound the df_subset has hits all from same query so qlen will be the same for all rows
+		blastp_summary['length (aminoacid)'][current_index] = df_subset['qlen'][df_subset.index[0]] # taking into accound the df_subset has hits all from same query so qlen will be the same for all rows
 		if belonging_query_min_eval == -1:
 			alien_indexes[query] = -np.inf
 		elif nonbelonging_query_min_eval == -1:
