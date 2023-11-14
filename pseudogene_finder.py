@@ -986,7 +986,7 @@ if __name__ == '__main__':
 
 	if args['filter_blastp']:
 		blastp_output = pd.read_csv(args['--blastp_output'], sep='\t', header = None, dtype = {14: 'str'}) # specify str for staxids because there can be more than one seprated by semicolons
-		blastp_output.rename(columns={0: 'qseqid', 1: 'sseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
+		blastp_output.rename(columns={0: 'qseqid', 1: 'qlen', 2: 'sallseqid', 3: 'slen', 4: 'pident', 5: 'length', 6: 'mismatch', 7: 'gapopen', 8: 'qstart', 9: 'qend', 10: 'sstart', 11: 'send', 12: 'evalue', 13: 'bitscore', 14: 'sallacc', 15: 'stitle', 16: 'staxids', 17: 'sscinames'}, inplace = True)
 		blast_file = args['--blastp_output'].replace('.out', '.filtered_taxid' + str(args['--parent_taxid']) + '.out')
 
 	elif args['runall'] and args['--diamond']:
@@ -998,7 +998,10 @@ if __name__ == '__main__':
 		if args['--parent_taxid'] != 1:
 			if args['--verbose']:
 				print("Filtering BLASTp output...")
-			blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
+			if args['--excluded_taxids'] is not None:
+				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
+			else:
+				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp')
 			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
 			subset_fasta(blastp_results[0])
 			subset_gff(blastp_results[0])
