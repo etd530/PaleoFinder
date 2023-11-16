@@ -9,7 +9,7 @@ Usage:
 	pseudogene_finder.py tblastn --proteins=FASTA --genome=FASTA [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --outprefix=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py extend --proteins=FASTA --genome=FASTA --tblastn_output=STR [--outprefix=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py filter_blastp --proteins=FASTA --blastp_output=STR --parent_taxid=INT [--excluded_taxids=STR] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py filter_blastp --proteins=FASTA --blastp_output=STR --parent_taxid=INT [--excluded_taxids=STR --outprefix=STR] [-v|--verbose] [-h|--help]
 
     Options:
         -p, --proteins FASTA                      Input query proteins for that serve as reference to find pseudogenes, in FASTA format. Can contain multiple sequences
@@ -632,7 +632,8 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 			taxdb = taxopy.TaxDb
 		except taxopy.exceptions.DownloadError:
 			sys.exit("ERROR: Failed to download the NCBI Taxonomy database. We recommend downloading it manually and specifying the path to the files.")
-	queries = set(blastp_df['qseqid'])
+	queries = list(set(blastp_df['qseqid']))
+	queries.sort()
 	peptides_to_keep = []
 	alien_indexes = {}
 	blastp_summary = pd.DataFrame(data = None, index = [*range(len(queries))], columns = ['query', 'length (aminoacid)', 'belonging_hits_count', 'nonbelonging_hits_count', 
@@ -695,7 +696,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 	blastp_summary = find_functional(homologs_length_dict = homologs_length_dict, blastp_filtered_summary = blastp_summary)
 	blastp_summary.to_csv('reconstructed_peptides_all.blastp.summary.tsv', sep = '\t', index = False)
 	blastp_filtered_summary = blastp_summary[blastp_summary.columns][blastp_summary['alien_index'] > 0]
-	blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
+	# blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
 	return(blastp_subset_df, blastp_filtered_summary)
 
 def subset_fasta(blastp_filtered_summary):
@@ -752,6 +753,36 @@ def subset_gff(blastp_filtered_summary):
 			with open(file.replace('.gff', '.filtered.gff').replace('extended_peptides_all_gff', 'filtered_peptides_gff'), 'w') as wh:
 				wh.write(file_string)
 
+def check_stop_codons(blastp_results, outprefix):
+	"""
+	Given the summary of candidate peptides that pass the filtering thresholds, check if there are stop codons in their sequence to assess how likely they are to be pseudogenes.
+
+	Arguments:
+		blastp_results: Pandas dataframe containing the summary of the filtered blastp results.
+		outprefix: Prefix used to name the output files.
+
+	Returns:
+		The same Pandas dataframe with an extra column indicating if the sequences contain or not stop codons.
+	"""
+	p1 = re.compile('\.pseudopeptide_candidate_[0-9]+')
+	p2 = re.compile('scaffold_[0-9]+\.')
+	has_stop_codons = []
+	for index, row in blastp_results.iterrows():
+		peptide_id = row['query']
+		homolog = p1.sub('', p2.sub('', peptide_id))
+		fasta_file = 'filtered_peptides_fasta/%s.%s.reconstructed_peptides.filtered.fasta' % (outprefix, homolog)
+		count = 0
+		with open(fasta_file) as fh:
+			for peptide in FastaIO.FastaIterator(fh):
+				if peptide.id == peptide_id:
+					count += 1
+					if '*' in peptide.seq:
+						has_stop_codons.append('Y')
+					else:
+						has_stop_codons.append('N')
+		assert count == 1
+	blastp_results['Stop codons presence'] = has_stop_codons
+	return(blastp_results)
 
 
 
@@ -1017,12 +1048,14 @@ if __name__ == '__main__':
 			if args['--verbose']:
 				print("Filtering BLASTp output...")
 			if args['--excluded_taxids'] is not None:
-				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
+				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 			else:
-				blastp_results = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp')
-			blastp_results[0].to_csv(blast_file, sep = '\t', index = False)
-			subset_fasta(blastp_results[0])
-			subset_gff(blastp_results[0])
+				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp')
+			blastp_filtered_summary = check_stop_codons(blastp_filtered_summary, args['--outprefix'])
+			blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
+			blastp_results.to_csv(blast_file, sep = '\t', index = False)
+			subset_fasta(blastp_results)
+			subset_gff(blastp_results)
 
 		if args['--verbose']:
 			print("Filtering of BLASTP results completed.\nExecution finished.")
