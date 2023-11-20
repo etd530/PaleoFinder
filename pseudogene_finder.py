@@ -159,8 +159,10 @@ def extract_fragments_from_scaffold(scaffold, coordinates):
 		The sequence fragment.
 	"""
 	if coordinates[0] < coordinates[1]:
+		print('Peptide comes from the forward strand so no need to reverse complement.')
 		fragment = scaffold[coordinates[0]-1:coordinates[1]]
 	else:
+		print('Peptide comes from the reverse strand so oligonucleotide will be reverse complemented.')
 		fragment = scaffold[coordinates[1]-1:coordinates[0]]
 		fragment = fragment.reverse_complement()
 	return(fragment)
@@ -502,6 +504,90 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 	else:
 		# print('INFO: Skipping this peptide, it would be outside the bounds of the scaffold. If this happened with the seed, there will be no alignment output.')
 		pass
+
+def gap_bridging(reconstructed_peptides, scaffold):
+	"""
+	Given a list of reconstructed candidate peptides, for those with a gap between the fragments both in the genome and when aligned to the protein homolog, try to add more nucleotides of this gap that fill the protein gap.
+
+	Arguments:
+		reconstructed_peptides: list containing the reconstructed peptides from the extension step.
+		scaffold: the scaffold in which the current candidate peptides are located in the query genome.
+
+	Returns:
+		The list of reconstructed peptides with the gaps reduced/fragments bridged.
+	"""
+	print('STARTING GAP BRIDGING:')
+	bridge_coordinates_list = []
+	for candidate_peptide in reconstructed_peptides:
+		for index in range(0, len(candidate_peptide)):
+			current_fragment = candidate_peptide[index]
+			print("CURRENT FRAGMENT:")
+			print(current_fragment)
+			# for each fragment we look at the gap before it so for the first one there is nothing to do except grab its end positions
+			if index != 0:
+				current_start_in_homolog = current_fragment[4]
+				if forward:
+					current_start_in_genome = current_fragment[0]
+				else:
+					current_start_in_genome = current_fragment[1]
+				print('Start of the fragment in genome: %s' % str(current_start_in_genome))
+				print('End of previous fragment in genome: %s' % str(previous_end_in_genome))
+				genome_gap = current_start_in_genome - previous_end_in_genome - 1
+				homolog_gap = current_start_in_homolog - previous_end_in_homolog -1
+				if genome_gap and homolog_gap:
+					print('Both genome and homolog have a gap')
+					if homolog_gap == 3*genome_gap:
+						print('DNA gap size matches that of aminoacid gap times 3. Trying to fit the entire fragment in the gap.')
+						if forward:
+							dna_bridge = extract_fragments_from_scaffold(scaffold, [previous_end_in_genome + 1, current_start_in_genome -1]) # add and substract one bc if fragment ends at nucleotide 5 we want to extract starting from 6 and so on
+						else:
+							dna_bridge = extract_fragments_from_scaffold(scaffold, [current_start_in_genome -1, previous_end_in_genome + 1])
+						aa_bridge = dna_bridge.translate()
+						# join previous and current fragment with the gap and with XXX and evaluate the %ID/alignment score against the homolog
+						unbridged_sequence = current_fragment[3].seq() + homolog_gap*'X' + candidate_peptide[index-1][3].seq()
+						bridged_sequence = current_fragment[3].seq() + aa_bridge + candidate_peptide[index-1][3].seq()
+						assert len(unbridged_sequence) == len(bridged_sequence)
+					elif genome_gap > 3*homolog_gap:
+						print('DNA gap is larger than aminoacid gap times 3, trying to fit a sliding window of the DNA into the homolog peptide.')
+						for i in range(0, genome_gap):
+							sub_bridge_start = previous_end_in_genome + i
+							sub_bridge_end = sub_bridge_start + homolog_gap - 1
+							assert (sub_bridge_start - sub_bridge_end + 1) == homolog_gap
+							if sub_bridge_end <= current_start_in_genome -1:
+								if forward:
+									dna_subbridge = extract_fragments_from_scaffold(scaffold, [sub_bridge_start, sub_bridge_end])
+								else:
+									dna_subbridge = extract_fragments_from_scaffold(scaffold, [sub_bridge_end, sub_bridge_start])
+								aa_subbridge = dna_subbridge.translate()
+								assert len(aa_subbridge) == homolog_gap
+								unbridged_sequence = current_fragment[3].seq() + homolog_gap*'X' + candidate_peptide[index-1][3].seq()
+								bridged_sequence = current_fragment[3].seq() + aa_subbridge + candidate_peptide[index-1][3].seq()
+								assert len(unbridged_sequence) == len(bridged_sequence)
+							else:
+								next
+					else:
+						print('DNA gap is smaller than aminoacid gap times 3, trying to cut from the previous fragments and adjust the reading frames to fit a bridge.')
+
+				else:
+					print('No gap in either genome or homolog so no gap can/needs to be filled.')
+			else:
+				print('Fragment is the first; checking orientation of the strand.')
+				if current_fragment[0] < current_fragment[1]:
+					print('Fragment is on the forward strand.')
+					forward = True
+				else:
+					print('Fragment is on the reverse strand.')
+					forward = False
+
+			# afterwards get the end of the fragment in both the genome and the homolog to account it for the next one
+			previous_end_in_homolog = current_fragment[5]
+			if forward:
+				previous_end_in_genome = current_fragment[1]
+			else:
+				previous_end_in_genome = current_fragment[0]
+
+	print(reconstructed_peptides)
+	return reconstructed_peptides
 
 def peptides2fasta(reconstructed_peptides):
 	"""
@@ -959,7 +1045,11 @@ if __name__ == '__main__':
 									if this_peptide[0][0] > this_peptide[0][1]:
 										reconstructed_peptides_complete[index].reverse()
 								# print(reconstructed_peptides_complete)
-								# Write reconstructed peptides to a file (temporary, output will be formatted as GFF and FASTA later on)
+								
+								# Try to fill gaps in those peptides that have some NTs in the genome and also some AAs in the homolog between them
+								reconstructed_peptides_complete = gap_bridging(reconstructed_peptides_complete, scaffold_seq)
+
+								# Write reconstructed peptides to a GFF file
 								id_num_gff = id_num # rest this to the same value as id_num
 								for peptide in reconstructed_peptides_complete:
 									fragment_num = 0
