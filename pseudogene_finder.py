@@ -742,7 +742,7 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 		blastp_results = pd.read_csv(blast_file, sep='\t', header = None, dtype = {14: 'str'}) # specify str for staxids since there can be multiple ones separated by semicolons
 	except pd.errors.EmptyDataError:
 		sys.exit("No hits obtained from blastp, exiting program.")
-	blastp_results.rename(columns={0: 'qseqid', 1: 'sallseqid', 2: 'pident', 3: 'length', 4: 'mismatch', 5: 'gapopen', 6: 'qstart', 7: 'qend', 8: 'sstart', 9: 'send', 10: 'evalue', 11: 'bitscore', 12: 'sacc', 13: 'stitle', 14: 'staxids', 15: 'sscinames'}, inplace = True)
+	blastp_results.rename(columns={0: 'qseqid', 1:'qlen', 2: 'sallseqid', 3: 'slen', 4: 'pident', 5: 'length', 6: 'mismatch', 7: 'gapopen', 8: 'qstart', 9: 'qend', 10: 'sstart', 11: 'send', 12: 'evalue', 13: 'bitscore', 14: 'sallacc', 15: 'stitle', 16: 'staxids', 17: 'sscinames'}, inplace = True)
 	return(blastp_results)
 
 def is_child(query_taxid, parent_taxid, taxdb):
