@@ -877,7 +877,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 
 def subset_fasta(blastp_filtered_summary):
 	"""
-	Write new FASTA files contaiing only those peptides that pass the filtering thresholds.
+	Write new FASTA files containing only those peptides that pass the filtering thresholds.
 
 	Arguments:
 		blastp_filtered_summary: Pandas dataframe containing the fitered blastp results.
@@ -1231,11 +1231,11 @@ if __name__ == '__main__':
 				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 			else:
 				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp')
-			blastp_filtered_summary = check_stop_codons(blastp_filtered_summary, args['--outprefix'])
-			blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
 			blastp_results.to_csv(blast_file, sep = '\t', index = False)
 			subset_fasta(blastp_results)
 			subset_gff(blastp_results)
+			blastp_filtered_summary = check_stop_codons(blastp_filtered_summary, args['--outprefix'])
+			blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
 
 		if args['--verbose']:
 			print("Filtering of BLASTP results completed.\nExecution finished.")
