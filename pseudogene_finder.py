@@ -47,6 +47,7 @@ import numpy as np             # to do fast array maths
 import subprocess              # to send Linux commands and capture output
 import taxopy                  # to work with NCBI Taxonomy database
 import re                      # to work with regular expressions
+import math                    # for mathy stuff. duh
 
 #### FUNS ####
 def make_blast_db(genome):
@@ -542,142 +543,212 @@ def number_of_substitutions(seq1, seq2, no_gaps = False):
 	else:
 		return sum(0 if nuc1 == nuc2 else 1 for (nuc1, nuc2) in zip(seq1, seq2))
 
-# def gap_bridging(reconstructed_peptides, scaffold, homolog):
-# 	"""
-# 	Given a list of reconstructed candidate peptides, for those with a gap between the fragments both in the genome and when aligned to the protein homolog, try to add more nucleotides of this gap that fill the protein gap.
+def gap_bridging(reconstructed_peptides, scaffold, homolog):
+	"""
+	Given a list of reconstructed candidate peptides, for those with a gap between the fragments both in the genome and when aligned to the protein homolog, try to add more nucleotides of this gap that fill the protein gap.
 
-# 	Arguments:
-# 		reconstructed_peptides: list containing the reconstructed peptides from the extension step.
-# 		scaffold: the scaffold in which the current candidate peptides are located in the query genome.
-# 		homolog: Seq object of the homolog protein which serves as template to find the candidate pseudogenes
+	Arguments:
+		reconstructed_peptides: list containing the reconstructed peptides from the extension step.
+		scaffold: the scaffold in which the current candidate peptides are located in the query genome.
+		homolog: Seq object of the homolog protein which serves as template to find the candidate pseudogenes
 
-# 	Returns:
-# 		The list of reconstructed peptides with the gaps reduced/fragments bridged.
-# 	"""
-# 	def build_bridged_fragment(current_fragment, scaffold, bridge_coordinates, forward, homolog_gap):
-# 		"""
-# 		Extend a sequence fragment based on coordinates to extend it.
+	Returns:
+		The list of reconstructed peptides with the gaps reduced/fragments bridged.
+	"""
+	def build_bridged_fragment(current_fragment, scaffold, bridge_coordinates, forward, homolog_gap):
+		"""
+		Extend a sequence fragment based on coordinates to extend it.
 
-# 		Arguments:
-# 		current_fragment: the fragment to extend.
-# 		scaffold: the scaffold from which to get the sequence to extend the fragment.
-# 		bridge_coordinates: the coordinates in the scafofld from which to get the sequence.
-# 		forwards: whether the sequence is on the forward or reverse strand.
+		Arguments:
+		current_fragment: the fragment to extend.
+		scaffold: the scaffold from which to get the sequence to extend the fragment.
+		bridge_coordinates: the coordinates in the scafofld from which to get the sequence.
+		forwards: whether the sequence is on the forward or reverse strand.
 
-# 		Returns:
-# 			The extended fragment.
-# 		"""
-# 		if forward:
-# 			dna_bridge = extract_fragments_from_scaffold(scaffold, bridge_coordinates)
-# 			extended_nt_sequence = dna_bridge + current_fragment[2].seq()
-# 			aa_bridge = dna_bridge.translate()
-# 			assert len(aa_bridge) == homolog_gap
-# 			extended_aa_sequence = aa_bridge + current_fragment[3].seq()
-# 			current_fragment[3] = extended_aa_sequence
-# 			current_fragment[2] = extended_nt_sequence
-# 			current_fragment[0] = bridge_start
-# 			current_fragment[4] = current_fragment[4] - homolog_gap
+		Returns:
+			The extended fragment.
+		"""
+		if forward:
+			dna_bridge = extract_fragments_from_scaffold(scaffold, bridge_coordinates)
+			extended_nt_sequence = dna_bridge + current_fragment[2].seq()
+			aa_bridge = dna_bridge.translate()
+			assert len(aa_bridge) == homolog_gap
+			extended_aa_sequence = aa_bridge + current_fragment[3].seq()
+			current_fragment[3] = extended_aa_sequence
+			current_fragment[2] = extended_nt_sequence
+			current_fragment[0] = bridge_start
+			current_fragment[4] = current_fragment[4] - homolog_gap
 
-# 		else:
-# 			dna_bridge = extract_fragments_from_scaffold(scaffold, bridge_coordinates)
-# 			extended_nt_sequence = current_fragment[2].seq() + dna_bridge
-# 			aa_bridge = dna_bridge.translate()
-# 			assert len(aa_bridge) == homolog_gap
-# 			extended_aa_sequence = current_fragment[3].seq() + aa_bridge
-# 			current_fragment[3] = extended_aa_sequence
-# 			current_fragment[2] = extended_nt_sequence
-# 			current_fragment[1] = bridge_start
-# 			current_fragment[5] = current_fragment[5] + homolog_gap
-# 		return current_fragment
+		else:
+			dna_bridge = extract_fragments_from_scaffold(scaffold, bridge_coordinates)
+			extended_nt_sequence = current_fragment[2].seq() + dna_bridge
+			aa_bridge = dna_bridge.translate()
+			assert len(aa_bridge) == homolog_gap
+			extended_aa_sequence = current_fragment[3].seq() + aa_bridge
+			current_fragment[3] = extended_aa_sequence
+			current_fragment[2] = extended_nt_sequence
+			current_fragment[1] = bridge_start
+			current_fragment[5] = current_fragment[5] + homolog_gap
+		return current_fragment
 	
-# 	print('STARTING GAP BRIDGING:')
-# 	bridge_coordinates_list = []
-# 	for peptide_index in range(0, len(reconstructed_peptides)):
-# 		candidate_peptide = reconstructed_peptides[peptide_index]
-# 		for fragment_index in range(0, len(candidate_peptide)):
-# 			current_fragment = candidate_peptide[fragment_index]
-# 			print("CURRENT FRAGMENT:")
-# 			print(current_fragment)
-# 			# for each fragment we look at the gap before it so for the first one there is nothing to do except grab its end positions
-# 			if fragment_index != 0:
-# 				current_start_in_homolog = current_fragment[4]
-# 				if forward:
-# 					current_start_in_genome = current_fragment[0]
-# 				else:
-# 					current_start_in_genome = current_fragment[1]
-# 				print('Start of the fragment in genome: %s' % str(current_start_in_genome))
-# 				print('End of previous fragment in genome: %s' % str(previous_end_in_genome))
-# 				genome_gap = current_start_in_genome - previous_end_in_genome - 1
-# 				homolog_gap = current_start_in_homolog - previous_end_in_homolog -1
-# 				if genome_gap and homolog_gap:
-# 					print('Both genome and homolog have a gap')
-# 					if 3*homolog_gap == genome_gap:
-# 						print('DNA gap size matches that of aminoacid gap times 3. Trying to fit the entire fragment in the gap.')
-# 						bridge_start = previous_end_in_genome + 1
-# 						bridge_end = current_start_in_genome -1
-# 						reconstructed_peptides[peptide_index][fragment_index] = build_bridged_fragment(current_fragment, 
-# 							scaffold, [bridge_start, bridge_end], forward, homolog_gap)
+	print('STARTING GAP BRIDGING:')
+	bridge_coordinates_list = []
+	for peptide_index in range(0, len(reconstructed_peptides)):
+		candidate_peptide = reconstructed_peptides[peptide_index]
+		for fragment_index in range(0, len(candidate_peptide)):
+			current_fragment = candidate_peptide[fragment_index]
+			print("CURRENT FRAGMENT:")
+			print(current_fragment)
+			# for each fragment we look at the gap before it so for the first one there is nothing to do except grab its end positions
+			if fragment_index != 0:
+				current_start_in_homolog = current_fragment[4]
+				if forward:
+					current_start_in_genome = current_fragment[0]
+				else:
+					current_start_in_genome = current_fragment[1]
+				print('Start of the fragment in genome: %s' % str(current_start_in_genome))
+				print('End of previous fragment in genome: %s' % str(previous_end_in_genome))
+				genome_gap = current_start_in_genome - previous_end_in_genome - 1
+				homolog_gap = current_start_in_homolog - previous_end_in_homolog -1
+				if genome_gap and homolog_gap:
+					print('Both genome and homolog have a gap')
+					homolog_gap_seq = extract_fragments_from_scaffold(homolog, [previous_end_in_homolog +1, current_start_in_homolog -1])
+					if 3*homolog_gap == genome_gap:
+						print('DNA gap size matches that of aminoacid gap times 3. Trying to fit the entire fragment in the gap.')
+						bridge_start = previous_end_in_genome + 1
+						bridge_end = current_start_in_genome -1
+						reconstructed_peptides[peptide_index][fragment_index] = build_bridged_fragment(current_fragment, 
+							scaffold, [bridge_start, bridge_end], forward, homolog_gap)
 
-# 					elif genome_gap > 3*homolog_gap:
-# 						print('DNA gap is larger than aminoacid gap times 3, trying to fit a sliding window of the DNA into the homolog peptide.')
-# 						homolog_gap = extract_fragments_from_scaffold(homolog, [previous_end_in_homolog +1, current_start_in_homolog -1])
-# 						current_candidate_fragment = None
-# 						for i in range(0, genome_gap):
-# 							sub_bridge_start = previous_end_in_genome + i # note this works bc we already took the start and end relative to the fowrard strand
-# 							sub_bridge_end = sub_bridge_start + homolog_gap - 1
-# 							assert (sub_bridge_start - sub_bridge_end + 1) == homolog_gap
-# 							if sub_bridge_end <= current_start_in_genome -1:
-# 								new_candidate_fragment = build_bridged_fragment(current_fragment, scaffold, [sub_bridge_start, sub_bridge_end], forward, 
-# 									homolog_gap)
-# 								if current_candidate_fragment is None:
-# 									current_candidate_fragment = new_candidate_fragment
-# 									subs_num = number_of_substitutions(homolog.seq, current_candidate_fragment[3].seq)
-# 									current_candidate_pid = subs_num/homolog_gap
-# 								else:
-# 									subs_num = number_of_substitutions(homolog.seq, new_candidate_fragment[3].seq)
-# 									new_candidate_pid = subs_num/homolog_gap
-# 									if new_candidate_pid > current_candidate_pid:
-# 										current_candidate_fragment = new_candidate_fragment
-# 										current_candidate_pid = new_candidate_pid	
-# 						reconstructed_peptides[peptide_index][fragment_index] = current_candidate_fragment
+					elif genome_gap > 3*homolog_gap:
+						print('DNA gap is larger than aminoacid gap times 3, trying to fit a sliding window of the DNA into the homolog peptide.')
+						current_candidate_fragment = None
+						for i in range(0, genome_gap):
+							sub_bridge_start = previous_end_in_genome + i # note this works bc we already took the start and end relative to the fowrard strand
+							sub_bridge_end = sub_bridge_start + homolog_gap - 1
+							assert (sub_bridge_start - sub_bridge_end + 1) == homolog_gap
+							if sub_bridge_end <= current_start_in_genome -1:
+								new_candidate_fragment = build_bridged_fragment(current_fragment, scaffold, [sub_bridge_start, sub_bridge_end], forward, 
+									homolog_gap_seq)
+								if current_candidate_fragment is None:
+									current_candidate_fragment = new_candidate_fragment
+									subs_num = number_of_substitutions(homolog_gap_seq, current_candidate_fragment[3].seq)
+									current_candidate_pid = subs_num/homolog_gap
+								else:
+									subs_num = number_of_substitutions(homolog_gap_seq, new_candidate_fragment[3].seq)
+									new_candidate_pid = subs_num/homolog_gap
+									if new_candidate_pid > current_candidate_pid:
+										current_candidate_fragment = new_candidate_fragment
+										current_candidate_pid = new_candidate_pid	
+						reconstructed_peptides[peptide_index][fragment_index] = current_candidate_fragment
 						
-# 					else:
-# 						print('DNA gap is smaller than aminoacid gap times 3, trying to cut from the previous fragments and adjust the reading frames to fit a bridge.')
-# 						gaps_difference = 3*homolog_gap - genome_gap
-# 						# First cut from the previous fragment (upstream superbridge), then from the following fragment
-# 						# again, remember previous end and current start are relative to forward strand
-# 						upstream_superbridge_start = previous_end_in_genome - gaps_difference + 1
-# 						upstream_superbridge_end = current_start_in_genome - 1
-# 						if forward:
-# 							dna_upstream_superbridge = extract_fragments_from_scaffold(scaffold, [upstream_superbridge_start, upstream_superbridge_end])
-# 						else:
-# 							dna_upstream_superbridge = extract_fragments_from_scaffold(scaffold, [upstream_superbridge_end, upstream_superbridge_start])
-# 						aa_upstream_superbridge = dna_upstream_superbridge.translate()
-# 						assert len(aa_upstream_superbridge) == homolog_gap
-# 						unbridged_sequence = current_fragment[3][:-gaps_difference] + homolog_gap*'X' + candidate_peptide[index-1][3]
-# 						bridged_sequence = current_fragment[3][:-gaps_difference] + aa_upstream_superbridge + candidate_peptide[index-1][3]
-# 						assert len(bridged_sequence) == len(unbridged_sequence)
+					else:
+						print('DNA gap is smaller than aminoacid gap times 3, trying to cut from the previous fragments and adjust the reading frames to fit a bridge.')
+						gaps_difference = 3*homolog_gap - genome_gap
+						# First cut from the previous fragment (upstream superbridge), then from the following fragment
+						# again, remember previous end and current start are relative to forward strand
+						print("Cutting from previous fragment...")
+						upstream_superbridge_start = previous_end_in_genome - gaps_difference + 1 # NEED TO ADD BRIDGE START AND END (NOT SUPER) AND GET THE NONSUPER SEQ TO ADD THE X's AND COMPARE
+						upstream_superbridge_end = current_start_in_genome - 1
+						if forward:
+							dna_upstream_superbridge = extract_fragments_from_scaffold(scaffold, [upstream_superbridge_start, upstream_superbridge_end])
+						else:
+							dna_upstream_superbridge = extract_fragments_from_scaffold(scaffold, [upstream_superbridge_end, upstream_superbridge_start])
+						aa_upstream_superbridge = dna_upstream_superbridge.translate()
+						print("TRIMMED FRAGMENT (FULL):")
+						print(candidate_peptide[fragment_index-1][3])
+						print("UPSTREAM SUPERBRIDGE:")
+						print(aa_upstream_superbridge)
+						assert len(aa_upstream_superbridge) == homolog_gap
+						unbridged_sequence = current_fragment[3][:-gaps_difference] + homolog_gap*'X' + candidate_peptide[index-1][3]
+						bridged_sequence = current_fragment[3][:-gaps_difference] + aa_upstream_superbridge + candidate_peptide[index-1][3]
+						assert len(bridged_sequence) == len(unbridged_sequence)
 
-# 				else:
-# 					print('No gap in either genome or homolog so no gap can/needs to be filled.')
-# 			else:
-# 				print('Fragment is the first; checking orientation of the strand.')
-# 				if current_fragment[0] < current_fragment[1]:
-# 					print('Fragment is on the forward strand.')
-# 					forward = True
-# 				else:
-# 					print('Fragment is on the reverse strand.')
-# 					forward = False
+						print("PRINTING HOMOLOG GAP SEQ:")
+						print(homolog_gap_seq.seq)
+						subs_num = number_of_substitutions(homolog_gap_seq.seq, math.ceil(gaps_difference)*'X'+aa_upstream_superbridge)
+						unbridged_sequence_pid = subs_num/homolog_gap
 
-# 			# afterwards get the end of the fragment in both the genome and the homolog to account it for the next one
-# 			previous_end_in_homolog = current_fragment[5]
-# 			if forward:
-# 				previous_end_in_genome = current_fragment[1]
-# 			else:
-# 				previous_end_in_genome = current_fragment[0]
+						subs_num = number_of_substitutions(homolog_gap_seq.seq, aa_upstream_superbridge)
+						upstream_bridged_sequence_pid = subs_num/homolog_gap
 
-# 	print(reconstructed_peptides)
-# 	return reconstructed_peptides
+						print("Cutting from next fragment...")
+						downstream_superbridge_start = previous_end_in_genome + 1
+						downstream_superbridge_end = current_start_in_genome - 1 + gaps_difference
+						if forward:
+							dna_downstream_superbridge = extract_fragments_from_scaffold(scaffold, [downstream_superbridge_start, downstream_superbridge_end])
+						else:
+							dna_downstream_superbridge = extract_fragments_from_scaffold(scaffold, [downstream_superbridge_end, downstream_superbridge_start])
+						aa_downstream_superbridge = dna_downstream_superbridge.translate()
+						assert len(aa_downstream_superbridge) == homolog_gap
+						unbridged_sequence = current_fragment[3] + homolog_gap*'X' + candidate_peptide[index-1][3][gaps_difference:]
+						bridged_sequence = current_fragment[3] + aa_downstream_superbridge + candidate_peptide[index-1][3][gaps_difference:]
+						assert len(unbridged_sequence) == len(bridged_sequence)
+
+						subs_num = number_of_substitutions(homolog_gap_seq, bridged_sequence)
+						downstream_bridged_sequence_pid = subs_num/homolog_gap
+
+						if upstream_bridged_sequence_pid > downstream_bridged_sequence_pid:
+							if upstream_bridged_sequence_pid > unbridged_sequence_pid:
+								print("Fragment cut from previous fragment improves the reconstruction. Keeping that fragment.")
+								if forward:
+									# The fragment previous to the bridge needs to be trimmed, since the 3' end now goes in the superbridge
+									reconstructed_peptides[peptide_index][fragment_index-1][1] = upstream_superbridge_start - 1
+									reconstructed_peptides[peptide_index][fragment_index-1][2] = reconstructed_peptides[peptide_index][fragment_index-1][2][:-gaps_difference]
+									reconstructed_peptides[peptide_index][fragment_index-1][3] = reconstructed_peptides[peptide_index][fragment_index-1][3][:-gaps_difference/3]
+									reconstructed_peptides[peptide_index][fragment_index-1][5] = reconstructed_peptides[peptide_index][fragment_index-1][5] - gaps_difference/3
+
+									# Extending the fragment that goes after the gap with the bridge
+									reconstructed_peptides[peptide_index][fragment_index][0] = upstream_superbridge_start
+									reconstructed_peptides[peptide_index][fragment_index][2] = dna_upstream_superbridge + reconstructed_peptides[peptide_index][fragment_index][2]
+									reconstructed_peptides[peptide_index][fragment_index][3] = aa_upstream_superbridge + reconstructed_peptides[peptide_index][fragment_index][3]
+									reconstructed_peptides[peptide_index][fragment_index][4] = reconstructed_peptides[peptide_index][fragment_index][4] - homolog_gap
+
+								else:
+									reconstructed_peptides[peptide_index][fragment_index-1][0] = upstream_superbridge_start - 1
+									reconstructed_peptides[peptide_index][fragment_index-1][2] = reconstructed_peptides[peptide_index][fragment_index-1][2][:-gaps_difference]
+									reconstructed_peptides[peptide_index][fragment_index-1][3] = reconstructed_peptides[peptide_index][fragment_index-1][3][gaps_difference/3 - 1:]
+									reconstructed_peptides[peptide_index][fragment_index-1][4] = reconstructed_peptides[peptide_index][fragment_index-1][5] + gaps_difference/3
+
+									# Extending the fragment that goes after the gap with the bridge, reverse strand
+									reconstructed_peptides[peptide_index][fragment_index][1] = upstream_superbridge_start
+									reconstructed_peptides[peptide_index][fragment_index][2] = dna_upstream_superbridge + reconstructed_peptides[peptide_index][fragment_index][2]
+									reconstructed_peptides[peptide_index][fragment_index][3] = reconstructed_peptides[peptide_index][fragment_index][3] + aa_upstream_superbridge
+									reconstructed_peptides[peptide_index][fragment_index][4] = reconstructed_peptides[peptide_index][fragment_index][4] + homolog_gap
+
+							else:
+								print("Not cutting is the best situation.")
+						elif downstream_bridged_sequence_pid > unbridged_sequence_pid:
+							print("Fragment cut from next fragment improves the reconstruction. Keeping that fragment.")
+							if forward:
+								reconstructed_peptides[peptide_index][fragment_index]
+							else:
+								pass
+
+						else:
+							print("Not cutting is the best situation.")
+
+
+				else:
+					print('No gap in either genome or homolog so no gap can/needs to be filled.')
+			else:
+				print('Fragment is the first; checking orientation of the strand.')
+				if current_fragment[0] < current_fragment[1]:
+					print('Fragment is on the forward strand.')
+					forward = True
+				else:
+					print('Fragment is on the reverse strand.')
+					forward = False
+
+			# afterwards get the end of the fragment in both the genome and the homolog to account it for the next one
+			previous_end_in_homolog = current_fragment[5]
+			if forward:
+				previous_end_in_genome = current_fragment[1]
+			else:
+				previous_end_in_genome = current_fragment[0]
+
+	print(reconstructed_peptides)
+	return reconstructed_peptides
 
 def peptides2fasta(reconstructed_peptides):
 	"""
@@ -1137,7 +1208,7 @@ if __name__ == '__main__':
 								# print(reconstructed_peptides_complete)
 								
 								# Try to fill gaps in those peptides that have some NTs in the genome and also some AAs in the homolog between them
-								# reconstructed_peptides_complete = gap_bridging(reconstructed_peptides_complete, scaffold_seq, homolog = protein)
+								reconstructed_peptides_complete = gap_bridging(reconstructed_peptides_complete, scaffold_seq, homolog = protein)
 
 								# Write reconstructed peptides to a GFF file
 								id_num_gff = id_num # rest this to the same value as id_num
