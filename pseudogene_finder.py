@@ -478,7 +478,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 								print(aligned_region_start)
 								print(aligned_region_end)
 
-							peptide_head_gap = aligned_region_start - 1
+							peptide_head_gap = aligned_region_start
 							aligned_region_len = len(aligned_region)
 							peptide_end_gap = len(peptides_list[index]) - peptide_head_gap - aligned_region_len
 							aligned_nucleotide_len = len(aligned_region)*3
