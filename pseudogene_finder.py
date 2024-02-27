@@ -544,6 +544,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 								aligned_nucleotide_start = corrected_start - next_fragment_start
 							else:
 								aligned_nucleotide_start = next_fragment_start - corrected_start
+							
 							aligned_nucleotide_end = aligned_nucleotide_start + aligned_nucleotide_len - 1
 							next_fragment_aligned_region = next_fragment[aligned_nucleotide_start:aligned_nucleotide_end + 1]
 							print(corrected_start)
@@ -552,7 +553,12 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 							print(next_fragment_end)
 							print(next_fragment_aligned_region)
 							print(peptides_list[index])
-							next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, peptides_list[index], homolog_start, homolog_end]
+							
+							# reverse complement if needed (since we are storing the sequence in the forward strand always), then store fragment
+							if next_fragment_start < next_fragment_end:
+								next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, peptides_list[index], homolog_start, homolog_end]
+							else:
+								next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region.reverse_complement(), peptides_list[index], homolog_start, homolog_end]
 						else:
 							next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, aligned_region, homolog_start, homolog_end]
 						# check to make sure nucleotide translates correctly to peptide, then yield
