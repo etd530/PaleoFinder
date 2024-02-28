@@ -816,6 +816,7 @@ def gap_bridging(reconstructed_peptides, scaffold, homolog):
 							                         best_aa_bridge, previous_end_in_homolog + 1, current_start_in_homolog - 1]
 
 						# Insert new fragment into peptide
+						reconstructed_peptides[peptide_index].insert(fragment_index, best_aa_bridge_entry)
 
 
 						# upstream_superbridge_start = previous_end_in_genome - gaps_difference + 1 # NEED TO ADD BRIDGE START AND END (NOT SUPER) AND GET THE NONSUPER SEQ TO ADD THE X's AND COMPARE
