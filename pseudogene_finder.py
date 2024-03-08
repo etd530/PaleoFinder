@@ -712,7 +712,7 @@ def gap_bridging(reconstructed_peptides, scaffold, homolog):
 							assert (sub_bridge_end - sub_bridge_start + 1) == 3*homolog_gap
 							if sub_bridge_end <= current_start_in_genome - 1:
 								new_candidate_fragment = extract_fragments_from_scaffold(scaffold, [sub_bridge_start, sub_bridge_end])
-								new_candidate_fragment = [sub_bridge_start, sub_bridge_end, new_candidate_fragment, new_candidate_fragment.translate(), previous_end_in_homolog, current_start_in_homolog]
+								new_candidate_fragment = [sub_bridge_start, sub_bridge_end, new_candidate_fragment, new_candidate_fragment.translate(), previous_end_in_homolog + 1, current_start_in_homolog - 1]
 								# print("NEW CANDIDATE FRAGMENT:")
 								# print(new_candidate_fragment)
 								# build_bridged_fragment(current_fragment, scaffold, [sub_bridge_start, sub_bridge_end], forward, homolog_gap_seq)
