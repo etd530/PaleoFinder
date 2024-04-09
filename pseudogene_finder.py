@@ -1056,7 +1056,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		'belonging_min_eval', 'nonbelonging_min_eval', 'alien_index', 'position_in_scaffold'])
 	current_index = 0
 	for query in queries:
-		# print(query)
+		print(query)
 		blastp_summary['query'][current_index] = query
 		protein_homolog_name = ".".join(query.split(".")[:-1][1:])
 		scaffold = query.split(".")[0]
@@ -1069,7 +1069,8 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 				if gff_entry[0] == scaffold:
 					print("Scaffold found.")
 					peptide_number = gff_entry[-1].split(";")[0].strip("ID=pseudogene_")
-					if query == scaffold+protein_homolog_name+".pseudopeptide_candidate_"+peptide_number:
+					print(".".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]))
+					if query == ".".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]):
 						print("Query found.")
 						if len(coordinates) == 0:
 							orientation = gff_entry[6]
