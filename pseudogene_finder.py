@@ -1076,14 +1076,14 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 						if len(coordinates) == 0:
 							orientation = gff_entry[6]
 							if gff_entry[6] == '+':
-								coordinates = "..".join(gff_entry[3:4])
+								coordinates = "..".join(gff_entry[3:5])
 								print(coordinates)
 							else:
-								coordinates = "c("+"..".join(gff_entry[3:4])
+								coordinates = "c("+"..".join(gff_entry[3:5])
 								print(coordinates)
 						else:
 							assert orientation == gff_entry[6]
-							coordinates = coordinates+","+"..".join(gff_entry[3:4])
+							coordinates = coordinates+","+"..".join(gff_entry[3:5])
 							print(coordinates)
 			if orientation == '-':
 				coordinates = coordinates + ")"
