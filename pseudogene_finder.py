@@ -1061,13 +1061,16 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		protein_homolog_name = ".".join(query.split(".")[:-1][1:])
 		scaffold = query.split(".")[0]
 		gff_name=".".join(["pseudogene_finder", protein_homolog_name, "reconstructed_peptides.gff"])
+		print("STARTING PROCESSING OF GFF COORDINATES")
 		coordinates=""
 		with open("extended_peptides_all_gff/"+gff_name, 'r') as fh:
 			for gff_entry in fh:
 				gff_entry = gff_entry.split("\t")
 				if gff_entry[0] == scaffold:
+					print("Scaffold found.")
 					peptide_number = gff_entry[-1].split(";")[0].strip("ID=pseudogene_")
 					if query == scaffold+protein_homolog_name+".pseudopeptide_candidate_"+peptide_number:
+						print("Query found.")
 						if len(coordinates) == 0:
 							orientation = gff_entry[6]
 							if gff_entry[6] == '+':
