@@ -1060,7 +1060,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		blastp_summary['query'][current_index] = query
 		protein_homolog_name = ".".join(query.split(".")[:-1][1:])
 		scaffold = query.split(".")[0]
-		gff_name=".".join(["pseudogene_finder", protein_homolog_name, ".reconstructed_peptides.gff"])
+		gff_name=".".join(["pseudogene_finder", protein_homolog_name, "reconstructed_peptides.gff"])
 		coordinates=""
 		with open("extended_peptides_all_gff/"+gff_name, 'r') as fh:
 			for gff_entry in fh:
