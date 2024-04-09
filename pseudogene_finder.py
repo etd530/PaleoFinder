@@ -1056,20 +1056,21 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		'belonging_min_eval', 'nonbelonging_min_eval', 'alien_index', 'position_in_scaffold'])
 	current_index = 0
 	for query in queries:
-		print(query)
 		blastp_summary['query'][current_index] = query
 		protein_homolog_name = ".".join(query.split(".")[:-1][1:])
 		scaffold = query.split(".")[0]
 		gff_name=".".join(["pseudogene_finder", protein_homolog_name, "reconstructed_peptides.gff"])
-		print("STARTING PROCESSING OF GFF COORDINATES")
+		print("STARTING PROCESSING OF GFF COORDINATES FOR QUERY:")
+		print(query)
 		coordinates=""
 		with open("extended_peptides_all_gff/"+gff_name, 'r') as fh:
 			for gff_entry in fh:
+				print(gff_entry)
 				gff_entry = gff_entry.split("\t")
 				if gff_entry[0] == scaffold:
 					print("Scaffold found.")
 					peptide_number = gff_entry[-1].split(";")[0].strip("ID=pseudogene_")
-					print(".".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]))
+					# print(".".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]))
 					if query == ".".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]):
 						print("Query found.")
 						if len(coordinates) == 0:
