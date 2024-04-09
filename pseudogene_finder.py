@@ -1069,14 +1069,16 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 					peptide_number = gff_entry[-1].split(";")[0].strip("ID=pseudogene_")
 					if query == scaffold+protein_homolog_name+".pseudopeptide_candidate_"+peptide_number:
 						if len(coordinates) == 0:
+							orientation = gff_entry[6]
 							if gff_entry[6] == '+':
 								coordinates="..".join(gff_entry[3:4])
 							else:
 								coordinates="c("+"..".join(gff_entry[3:4])
 						else:
+							assert orientation == gff_entry[6]
 							coordinates=coordinates+","+"..".join(gff_entry[3:4])
-		if gff_entry[6] == '-':
-			coordinates == coordinates + ")"
+			if orientation == '-':
+				coordinates = coordinates + ")"
 
 		correct_taxa = False
 		df_subset = blastp_df.loc[blastp_df['qseqid'] == query]
@@ -1113,7 +1115,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		blastp_summary['length (aminoacid)'][current_index] = df_subset['qlen'][df_subset.index[0]] # taking into accound the df_subset has hits all from same query so qlen will be the same for all rows
 		blastp_summary['position_in_scaffold'][current_index] = coordinates
 		if belonging_query_min_eval == -1:
-			alien_indexes[query] = -np.inf
+			alien_indexes[query] = -np.inf # we use -Inf and Inf when Alien Index cannot be computed because either there are no belonging queries or no non-belonging queries
 		elif nonbelonging_query_min_eval == -1:
 			alien_indexes[query] = np.inf
 		elif nonbelonging_query_min_eval == 0 and belonging_query_min_eval == 0:
