@@ -29,7 +29,7 @@ Usage:
         --diamond                                 Use diamond instead of NCBI's blastp for the final validation.
         --diamond_block_size FLT                  Block size to use for diamond; note diamond will use up to about 6 times this value in GBs of RAM [default: 2]
         --parent_taxid INT                        Taxid from NCBI's Taxonomy database specifying a taxa to which the blastp hits are expected to belong. Required to filter the blastp output by taxonomic identity.
-        --excluded_taxids STR                     Comma-separated list of taxids to exclude from the blastp results.
+        --excluded_taxids STR                     Comma-separated list of taxids to exclude from the blastp results. Usually you want to exlucde the organisms whose genome you are screening to avoid self-hits.
         -o, --outprefix STR                       Prefix to use for output files [default: pseudogene_finder].
         -v, --verbose                             Print the progressions of the program to the terminal (Standard Error).
         -h, --help                                Show this help message and exit.
