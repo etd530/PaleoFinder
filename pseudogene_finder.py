@@ -344,6 +344,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 				within_seq = 0
 				identical_positions = 0
 				position_in_homolog = 0
+				position_in_fragment = 0
 				end_found = False
 				print('ALIGNMENT:')
 				print(alignment)
@@ -351,10 +352,12 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 					if alignment[0, position] != '-':
 						position_in_homolog += 1
 						if alignment[1, position] != '-':
+							position_in_fragment += 1
 							end_found = False # set end found to False each time you find an AA, to prevent internal gaps from being considered the end if there is not end gap
 							if not within_seq:
 								start = position
 								homolog_start = position_in_homolog
+								fragment_start = position_in_fragment - 1
 								within_seq = 1
 						if within_seq and alignment[1, position] == '-' and alignment[1, position -1] != '-': # this only founds the end if there is an end gap!
 							# print("END FOUND")
@@ -363,19 +366,23 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 							end = position - 1
 							end_found = True
 							homolog_end = position_in_homolog - 1
+							fragment_end = position_in_fragment -1
 						if alignment[0, position] == alignment[1, position]:
 							identical_positions += 1
+					elif alignment[1, position] != '-': # if there is gap in homolog, still check also if there is gap in fragment to add to the position if needed
+						position_in_fragment += 1
 				# after checking all positions, first make sure that start and homolog_start have been found, else it means there is not overlap in the seqs (i.e. no real alignment, all is gaps)
 				if 'homolog_start' in locals() and 'start' in locals():
 					# if end has not been found because there is no end gap, it means the end is the end of the actual alignment
 					if not end_found:
 						end = alignment.get_alignment_length() - 1
 						homolog_end = position_in_homolog
+						fragment_end = position_in_fragment
 
 					# Check if candidate fragment aligns fully (it is "bounded" by the reference homolog); if not, mark as outside the bounds
 					print("ORIGINAL next fragment:")
 					print(peptides_list[index])
-					print("COORDINATES OF ALIGNED PART: %s - %s" % (str(start), str(end)))
+					print("COORDINATES OF ALIGNED PART IN FRAGMENT: %s - %s" % (str(fragment_start), str(fragment_end)))
 					if len(peptides_list[index]) > (end - start + 1):
 						print("A part of the fragment goes over the edges of the reference homolog, will keep only the part that aligns.")
 						outbound = True
@@ -428,9 +435,9 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 					print('PERCENT IDENTITY:')
 					print(percent_identity)
 					print('START IN FRAGMENT:')
-					print(start)
+					print(fragment_start)
 					print('END IN FRAGMENT:')
-					print(end)
+					print(fragment_end)
 
 					# If the fragment passes the thresholds, get the final coordinates and create the fragment entry for the list
 					if contiguous and percent_identity > 20:
@@ -477,13 +484,16 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 								aligned_region_end = aligned_region_start + len(aligned_region) - 1
 							else:
 								print('FRAGMENT FROM GLOBAL ALIGNMENT BUT OUTSIDE BOUNDS OF HOMOLOG, EXTRACTING ALIGNED REGION')
-								aligned_region = peptides_list[index][start:end + 1]
+								aligned_region = peptides_list[index][fragment_start:fragment_end + 1]
 								print('ALIGNED REGION:')
 								print(aligned_region)
-								aligned_region_start = start
-								aligned_region_end = end
+								aligned_region_start = fragment_start
+								aligned_region_end = fragment_end
 								print(aligned_region_start)
 								print(aligned_region_end)
+								print('COORDINATES OF ALIGNED REGION IN ORIGINAL FRAGMENT:')
+								print(fragment_start)
+								print(fragment_end)
 
 							peptide_head_gap = aligned_region_start
 							aligned_region_len = len(aligned_region)
@@ -531,7 +541,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 							print("GENOMIC COORDINATES CORRECTED FOR THE ALIGNED FRAGMENT:")
 							print(corrected_start)
 							print(corrected_end)
-							print("DNA FRAGMENT CORRESPONDING TO THE ALIGN PORTION OF THE PEPTIDE:")
+							print("DNA FRAGMENT CORRESPONDING TO THE ALIGNED PORTION OF THE PEPTIDE:")
 							print(next_fragment_aligned_region)
 							print("TRANSLATION TO CHECK IT WORKS OK:")
 							print(next_fragment_aligned_region.translate())
@@ -563,6 +573,9 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 							next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, aligned_region, homolog_start, homolog_end]
 						# check to make sure nucleotide translates correctly to peptide, then yield
 						if next_fragment_entry[0] < next_fragment_entry[1]:
+							print(next_fragment_entry[2])
+							print(next_fragment_entry[2].translate())
+							print(next_fragment_entry[3])
 							assert next_fragment_entry[2].translate() == next_fragment_entry[3]
 						else:
 							assert next_fragment_entry[2].reverse_complement().translate() == next_fragment_entry[3]
