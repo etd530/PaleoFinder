@@ -376,8 +376,8 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 					# if end has not been found because there is no end gap, it means the end is the end of the actual alignment
 					if not end_found:
 						end = alignment.get_alignment_length() - 1
-						homolog_end = position_in_homolog
-						fragment_end = position_in_fragment
+						homolog_end = position_in_homolog - 1
+						fragment_end = position_in_fragment - 1
 
 					# Check if candidate fragment aligns fully (it is "bounded" by the reference homolog); if not, mark as outside the bounds
 					print("ORIGINAL next fragment:")
@@ -578,6 +578,9 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 							print(next_fragment_entry[3])
 							assert next_fragment_entry[2].translate() == next_fragment_entry[3]
 						else:
+							print(next_fragment_entry[2])
+							print(next_fragment_entry[2].reverse_complement().translate())
+							print(next_fragment_entry[3])
 							assert next_fragment_entry[2].reverse_complement().translate() == next_fragment_entry[3]
 						yield (next_fragment_entry, order)
 						
