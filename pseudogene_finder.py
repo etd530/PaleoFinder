@@ -202,7 +202,7 @@ def align_peptides_simple(protein, peptide):
 			fh.write('>%s\n%s\n' % (protein.id, protein.seq))
 		with open("seqb.fa", "w") as fh:
 			fh.write('>fragment_peptide\n%s\n' % peptide)
-		os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta -auto Y')
+		os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta -auto Y -sprotein1 Y -sprotein2 Y')
 		status = os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
 		alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
 		# Align with Clustal Omega (Needle works best for our case for now)
