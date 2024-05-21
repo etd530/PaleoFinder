@@ -246,7 +246,7 @@ def align_bridges(protein_gap, bridge):
 		fh.write('>%s\n%s\n' % (protein_gap.id, protein_gap.seq))
 	with open("seqb.fa", "w") as fh:
 		fh.write('>bridge_peptide\n%s\n' % bridge)
-	os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta -auto Y')
+	os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta -auto Y -sprotein1 Y -sprotein2 Y')
 	status = os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
 	alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
 	return(alignment)
