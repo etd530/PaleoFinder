@@ -533,9 +533,20 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 								nucleotide_head_gap = 3*peptide_end_gap
 								corrected_end = corrected_end + nucleotide_head_gap
 								corrected_start = corrected_end + aligned_nucleotide_len - 1
-								aligned_nucleotide_start = corrected_start - next_fragment_start # note that we should add +1 BUT since we use this to subset for Python, and which is 0-based and we are using 1-based, we would have to subtract 1, so we save that step
-								aligned_nucleotide_end = corrected_end - next_fragment_end # same as previous line
-								next_fragment_aligned_region = next_fragment.reverse_complement()[aligned_nucleotide_end:aligned_nucleotide_start]
+								print("CORRECTED START IN GENOME")
+								print(corrected_start)
+								print("CORRECTED END IN GENOME")
+								print(corrected_end)
+								print("PREVIOUS END IN GENOME")
+								print(next_fragment_end)
+								aligned_nucleotide_start = next_fragment_start - corrected_start # note that we should add +1 BUT since we use this to subset for Python, and which is 0-based and we are using 1-based, we would have to subtract 1, so we save that step
+								# aligned_nucleotide_end = corrected_end - next_fragment_end # same as previous line
+								aligned_nucleotide_end = aligned_nucleotide_start + aligned_nucleotide_len -1
+								print("CORRECTED START IN FRAGMENT")
+								print(aligned_nucleotide_start)
+								print("CORRECTED END IN FRAGMENT")
+								print(aligned_nucleotide_end)
+								next_fragment_aligned_region = next_fragment[aligned_nucleotide_start:aligned_nucleotide_end + 1]
 							print("LENGTH OF NUCLEOTIDES NOT ALIGNED IN THE 5':")
 							print(nucleotide_head_gap)
 							print("GENOMIC COORDINATES CORRECTED FOR THE ALIGNED FRAGMENT:")
@@ -566,18 +577,28 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 							
 							# reverse complement if needed (since we are storing the sequence in the forward strand always), then store fragment
 							if next_fragment_start < next_fragment_end:
+								print("Building new fragment on a forwrad strand")
 								next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, peptides_list[index], homolog_start, homolog_end]
 							else:
+								print("Building new fragment on a reverse strand")
 								next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region.reverse_complement(), peptides_list[index], homolog_start, homolog_end]
 						else:
-							next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, aligned_region, homolog_start, homolog_end]
+							if next_fragment_start < next_fragment_end:
+								print("Building new fragment on a forwrad strand from local alignment (or outbound global)")
+								next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region, aligned_region, homolog_start, homolog_end]
+							else:
+								print("Building new fragment on a reverse strand form local alignment (or outbound global)")
+								next_fragment_entry = [corrected_start, corrected_end, next_fragment_aligned_region.reverse_complement(), aligned_region, homolog_start, homolog_end]
+
 						# check to make sure nucleotide translates correctly to peptide, then yield
 						if next_fragment_entry[0] < next_fragment_entry[1]:
+							print("Final check in forward strand case.")
 							print(next_fragment_entry[2])
 							print(next_fragment_entry[2].translate())
 							print(next_fragment_entry[3])
 							assert next_fragment_entry[2].translate() == next_fragment_entry[3]
 						else:
+							print("Final check in reverse strand case.")
 							print(next_fragment_entry[2])
 							print(next_fragment_entry[2].reverse_complement().translate())
 							print(next_fragment_entry[3])
@@ -590,24 +611,24 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 
 			 		# If it does not pass the thresholds AND we have NOT done local alignment yet, start the 300bp local alignment step
 					elif do_local:
-						# print("Peptide not good. Starting round of local alignment")
+						print("Peptide not good. Starting round of local alignment")
 						yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
 							protein_homolog = protein_homolog, direction = direction, order = order - 1, fragment_size = 300, do_local = False, reading_frame = index)
 					else:
-						# print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
+						print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
 						pass
 				
 				# if homolog start is not assigned, it means no positions were aligned at all, do 300 step IF not tried yet
 				elif do_local:
-					# print("Peptide not good. Starting round of local alignment")
+					print("Peptide not good. Starting round of local alignment")
 					yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
 						protein_homolog = protein_homolog, direction = direction, order = order - 1, fragment_size = 300, do_local = False, reading_frame = index)
 				else:
-					# print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
+					print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
 					pass
 
 			else:
-				# print("No local alignment produced for this sequence, it will not be added to the peptide")
+				print("No local alignment produced for this sequence, it will not be added to the peptide")
 				pass
 	else:
 		# print('INFO: Skipping this peptide, it would be outside the bounds of the scaffold. If this happened with the seed, there will be no alignment output.')
