@@ -687,7 +687,7 @@ def gap_bridging(reconstructed_peptides, scaffold, homolog):
 			print(aa_bridge)
 			print("HOMOLOG GAP:")
 			print(homolog_gap)
-			assert len(aa_bridge) == len(homolog_gap)
+			assert len(aa_bridge) == homolog_gap
 			extended_aa_sequence = aa_bridge + current_fragment[3]
 			current_fragment[3] = extended_aa_sequence
 			current_fragment[2] = extended_nt_sequence
