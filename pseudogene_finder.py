@@ -692,7 +692,7 @@ def gap_bridging(reconstructed_peptides, scaffold, homolog):
 			current_fragment[3] = extended_aa_sequence
 			current_fragment[2] = extended_nt_sequence
 			current_fragment[0] = bridge_coordinates[0]
-			current_fragment[4] = current_fragment[4] - len(homolog_gap)
+			current_fragment[4] = current_fragment[4] - homolog_gap
 
 		else:
 			dna_bridge = extract_fragments_from_scaffold(scaffold, bridge_coordinates)
@@ -703,7 +703,7 @@ def gap_bridging(reconstructed_peptides, scaffold, homolog):
 			current_fragment[3] = extended_aa_sequence
 			current_fragment[2] = extended_nt_sequence
 			current_fragment[1] = bridge_coordinates[1]
-			current_fragment[5] = current_fragment[5] + len(homolog_gap)
+			current_fragment[5] = current_fragment[5] + homolog_gap
 		return current_fragment
 
 	print('STARTING GAP BRIDGING:')
