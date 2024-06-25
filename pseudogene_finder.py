@@ -1095,6 +1095,9 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 	for query in queries:
 		blastp_summary['query'][current_index] = query
 		protein_homolog_name = ".".join(query.split(".")[:-1][1:])
+		protein_homolog_seqid = query.split(".")[2].split("_")[1]
+		print("PROTEIN HOMOLOG SEQ ID:")
+		print(protein_homolog_seqid)
 		scaffold = query.split(".")[0]
 		gff_name=".".join(["pseudogene_finder", protein_homolog_name, "reconstructed_peptides.gff"])
 		coordinates=""
@@ -1118,6 +1121,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 				coordinates = coordinates + ")"
 
 		correct_taxa = False
+		homolog_in_hits = False
 		df_subset = blastp_df.loc[blastp_df['qseqid'] == query]
 		belonging_query_min_eval = -1
 		nonbelonging_query_min_eval = -1
@@ -1125,6 +1129,10 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		nonbelonging_hits_count = 0
 		for index, row in df_subset.iterrows():
 			query_taxid = str(row['staxids'])
+			query_seqids = str(row['sallseqid'])
+			# check if the target protein homolog is among the hits of that particular candidate peptide
+			if protein_homolog_seqid in query_seqids:
+				homolog_in_hits = True
 			if query_taxid not in excluded_taxids_list: # make sure this taxid is not of the ones we want to exclude
 				query_hit_evalue = float(row['evalue'])
 				if ';' in query_taxid:
@@ -1164,7 +1172,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		else:
 			alien_indexes[query] = np.log10(nonbelonging_query_min_eval) - np.log10(belonging_query_min_eval)
 		blastp_summary['alien_index'][current_index] = alien_indexes[query]
-		if correct_taxa and alien_indexes[query] > 0:
+		if correct_taxa and homolog_in_hits and alien_indexes[query] > 0:
 			peptides_to_keep.append(query)
 		blastp_subset_df = blastp_df.loc[blastp_df['qseqid'].isin(peptides_to_keep)][blastp_df.columns]
 		blastp_subset_df = blastp_subset_df.loc[~blastp_subset_df['staxids'].isin(excluded_taxids_list)][blastp_subset_df.columns]
