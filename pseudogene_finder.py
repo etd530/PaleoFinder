@@ -1003,14 +1003,14 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 		blast_file = outprefix + ".diamond_blastp." + matrix + ".evalue" + max_evalue + ".out"
 		blast_file = blast_file.replace(' ', '_')
 		# blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --evalue " + max_evalue + " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle staxids sscinames -b 30 -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
-		blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --max-hsps 0 --evalue " + max_evalue + " --outfmt 6 qseqid qlen sallseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle -b " + block_size + " -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
+		blastp_command = "diamond blastp --more-sensitive --max-target-seqs 500 --max-hsps 0 --evalue " + max_evalue + " --outfmt 6 qseqid qlen sallseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle staxids sscinames -b " + block_size + " -c 1 --threads " + threads + " -d " + target + " -q " + query + " -o " + blast_file
 		# WARNING: CHANGE THE BLAST COMMAND LATER! THE GOOD ONE IS THE COMMETED OUT BUT IN THE LOCAL DB I DO NOT HAVE TAXID INFO FOR THE OUTPUT!
 		# NOTE: On Robert's pipeline they use bitscore instead of evalue to filter results: --min-score 40; to keep in mind
 		# NOTE 2: We don't have sacc on the output columns since apparantly diamond does not allow for it
 	else:
 		blast_file = outprefix + ".blastp.wordsize" + wordsize + "." + matrix + ".evalue" + max_evalue + ".out"
 		blast_file = blast_file.replace(' ', '_')
-		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid qlen sallseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore sallacc stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
+		blastp_command="blastp -query " + query + " -db " + target + " -word_size " + wordsize + " -matrix " + matrix + " -evalue " + max_evalue + " -outfmt \"6 qseqid qlen sallseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle staxids sscinames\" -num_threads " + threads + " -out " + blast_file
 	if not os.path.exists(blast_file):
 		os.system(blastp_command)
 	else:
@@ -1062,7 +1062,7 @@ def find_functional(homologs_length_dict, blastp_filtered_summary):
 		homologs_length_list.append(current_homolog_len)
 		length_ratios_list.append(current_peptide_len/current_homolog_len)
 	blastp_filtered_summary['homolog length (aminoacid)'] = homologs_length_list
-	blastp_filtered_summary['lenghts ratio'] = length_ratios_list
+	blastp_filtered_summary['lengths ratio'] = length_ratios_list
 	return blastp_filtered_summary
 
 def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = []):
