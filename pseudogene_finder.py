@@ -1253,6 +1253,8 @@ def check_stop_codons(blastp_results, outprefix):
 	has_stop_codons = []
 	for index, row in blastp_results.iterrows():
 		peptide_id = row['query']
+		print("PEPTIDE ID:")
+		print(peptide_id)
 		homolog = p1.sub('', p2.sub('', peptide_id))
 		fasta_file = 'filtered_peptides_fasta/%s.%s.reconstructed_peptides.filtered.fasta' % (outprefix, homolog)
 		count = 0
