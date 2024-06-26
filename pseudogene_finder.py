@@ -1177,6 +1177,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		blastp_subset_df = blastp_df.loc[blastp_df['qseqid'].isin(peptides_to_keep)][blastp_df.columns]
 		blastp_subset_df = blastp_subset_df.loc[~blastp_subset_df['staxids'].isin(excluded_taxids_list)][blastp_subset_df.columns]
 		current_index += 1
+	blastp_summary = blastp_summary.loc[blastp_summary['query'].isin(peptides_to_keep)][blastp_summary.columns]
 	blastp_summary = find_functional(homologs_length_dict = homologs_length_dict, blastp_filtered_summary = blastp_summary)
 	blastp_summary.to_csv('reconstructed_peptides_all.blastp.summary.tsv', sep = '\t', index = False)
 	blastp_filtered_summary = blastp_summary[blastp_summary.columns][blastp_summary['alien_index'] > 0]
@@ -1188,7 +1189,7 @@ def subset_fasta(blastp_filtered_summary):
 	Write new FASTA files containing only those peptides that pass the filtering thresholds.
 
 	Arguments:
-		blastp_filtered_summary: Pandas dataframe containing the fitered blastp results.
+		blastp_filtered_summary: Pandas dataframe containing the filtered blastp results.
 
 	Returns:
 		None. Writes the FASTA files to disk.
@@ -1545,7 +1546,7 @@ if __name__ == '__main__':
 			subset_fasta(blastp_results)
 			subset_gff(blastp_results)
 			blastp_filtered_summary = check_stop_codons(blastp_filtered_summary, args['--outprefix'])
-			blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
+			blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.with_functional.summary.tsv', sep = '\t', index = False)
 
 		if args['--verbose']:
 			print("Filtering of BLASTP results completed.\nExecution finished.")
