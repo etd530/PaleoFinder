@@ -1546,7 +1546,7 @@ if __name__ == '__main__':
 			subset_fasta(blastp_results)
 			subset_gff(blastp_results)
 			blastp_filtered_summary = check_stop_codons(blastp_filtered_summary, args['--outprefix'])
-			blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.with_functional.summary.tsv', sep = '\t', index = False)
+			blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
 
 		if args['--verbose']:
 			print("Filtering of BLASTP results completed.\nExecution finished.")
