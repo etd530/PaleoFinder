@@ -1478,7 +1478,7 @@ if __name__ == '__main__':
 								# print(len(peptide_sequences))
 								for index in range(0, len(peptide_sequences)):
 									peptide = peptide_sequences[index]
-									line = '>%s.%s.pseudopeptide_candidate_%s\n%s\n' % (scaffold, protein_id, str(index+id_num), peptide)
+									line = '>%s___%s___pseudopeptide_candidate_%s\n%s\n' % (scaffold, protein_id, str(index+id_num), peptide)
 									fh_seqs.write(line)
 								# now this will start a new seed potentially in the same scaffold and homologous peptide, so we increase by one just in case
 								# print('INCREASING PEPTIDE COUNT BY: %s' % str(len(peptide_sequences)))
