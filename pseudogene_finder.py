@@ -1093,12 +1093,16 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		'belonging_min_eval', 'nonbelonging_min_eval', 'alien_index', 'position_in_scaffold'])
 	current_index = 0
 	for query in queries:
+		print('QUERY:')
+		print('query')
 		blastp_summary['query'][current_index] = query
 		protein_homolog_name = ".".join(query.split(".")[:-1][1:])
-		protein_homolog_seqid = query.split(".")[2].split("_")[1]
+		print("HOMOLOG NAME:")
+		print(protein_homolog_name)
+		protein_homolog_seqid = query.split('___')[1].split(".")[1].split("_")[1]
 		print("PROTEIN HOMOLOG SEQ ID:")
 		print(protein_homolog_seqid)
-		scaffold = query.split(".")[0]
+		scaffold = query.split("___")[0]
 		gff_name=".".join(["pseudogene_finder", protein_homolog_name, "reconstructed_peptides.gff"])
 		coordinates=""
 		with open("extended_peptides_all_gff/"+gff_name, 'r') as fh:
