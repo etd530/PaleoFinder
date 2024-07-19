@@ -1255,14 +1255,15 @@ def check_stop_codons(blastp_results, outprefix):
 	Returns:
 		The same Pandas dataframe with an extra column indicating if the sequences contain or not stop codons.
 	"""
-	p1 = re.compile('\.pseudopeptide_candidate_[0-9]+')
-	p2 = re.compile('scaffold_[0-9]+\.')
+	# p1 = re.compile('\.pseudopeptide_candidate_[0-9]+')
+	# p2 = re.compile('scaffold_[0-9]+\.')
 	has_stop_codons = []
 	for index, row in blastp_results.iterrows():
 		peptide_id = row['query']
 		print("PEPTIDE ID:")
 		print(peptide_id)
-		homolog = p1.sub('', p2.sub('', peptide_id))
+		homolog = peptide_id.split('___')[1]
+		# homolog = p1.sub('', p2.sub('', peptide_id))
 		fasta_file = 'filtered_peptides_fasta/%s.%s.reconstructed_peptides.filtered.fasta' % (outprefix, homolog)
 		count = 0
 		with open(fasta_file) as fh:
