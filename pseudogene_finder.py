@@ -1110,8 +1110,9 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 				gff_entry = gff_entry.split("\t")
 				if gff_entry[0] == scaffold:
 					peptide_number = gff_entry[-1].split(";")[0].strip("ID=pseudogene_")
-					# print(".".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]))
+					print(".".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]))
 					if query == ".".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]):
+						print(coordinates)
 						if len(coordinates) == 0:
 							orientation = gff_entry[6]
 							if gff_entry[6] == '+':
