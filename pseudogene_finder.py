@@ -1051,12 +1051,13 @@ def find_functional(homologs_length_dict, blastp_filtered_summary):
 		homologs_length_dict: Dictionary containing the length in AA residues (value) of each protein of the closest homolog's proteome (keys).
 		blastp_filtered_summary: Pandas dataframe containing the reconstructed peptides that pass the blastp filtering step (output of filter_blastp_output)
 	"""
-	p1 = re.compile('\.pseudopeptide_candidate_[0-9]+')
-	p2 = re.compile('scaffold_[0-9]+\.')
+	# p1 = re.compile('\.pseudopeptide_candidate_[0-9]+')
+	# p2 = re.compile('scaffold_[0-9]+\.')
 	homologs_length_list = []
 	length_ratios_list = []
 	for index, row in blastp_filtered_summary.iterrows():
-		current_homolog = p1.sub('', p2.sub('', row['query']))
+		current_homolog = row['query'].split('___')[1]
+		# current_homolog = p1.sub('', p2.sub('', row['query']))
 		current_homolog_len = int(homologs_length_dict[current_homolog])
 		current_peptide_len = int(row['length (aminoacid)'])
 		homologs_length_list.append(current_homolog_len)
