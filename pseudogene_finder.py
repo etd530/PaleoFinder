@@ -1094,9 +1094,9 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 	current_index = 0
 	for query in queries:
 		print('QUERY:')
-		print('query')
+		print(query)
 		blastp_summary['query'][current_index] = query
-		protein_homolog_name = ".".join(query.split(".")[:-1][1:])
+		protein_homolog_name = query.split("___")[1]
 		print("HOMOLOG NAME:")
 		print(protein_homolog_name)
 		protein_homolog_seqid = query.split('___')[1].split(".")[1].split("_")[1]
