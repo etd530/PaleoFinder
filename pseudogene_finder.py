@@ -1145,6 +1145,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 				if ';' in query_taxid:
 					taxids_list = [int(x) for x in query_taxid.split(';') if x not in excluded_taxids_list] # make sure this taxid is not of the ones we want to exclude
 					if len(taxids_list) > 1: # make sure we still have some taxids to look for
+						print(taxids_list)
 						taxa_list = [taxopy.Taxon(x, taxdb) for x in taxids_list]
 						query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
 					elif len(taxids_list) == 1:
