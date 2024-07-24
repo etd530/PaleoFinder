@@ -1137,6 +1137,8 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		nonbelonging_hits_count = 0
 		for index, row in df_subset.iterrows():
 			query_taxid = str(row['staxids'])
+			print('Taxids of the current query:')
+			print(query_taxid)
 			query_seqids = str(row['sallseqid'])
 			# check if the target protein homolog is among the hits of that particular candidate peptide
 			if protein_homolog_seqid in query_seqids:
@@ -1150,14 +1152,18 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 				if ';' in query_taxid:
 					taxids_list = [int(x) for x in query_taxid.split(';') if x not in excluded_taxids_list] # make sure this taxid is not of the ones we want to exclude
 					if len(taxids_list) > 1: # make sure we still have some taxids to look for
+						print('More than one taxid assigned to the query:')
 						print(taxids_list)
 						taxa_list = [taxopy.Taxon(x, taxdb) for x in taxids_list]
 						query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
+						print("LCA of the taxids assigned to the query is:")
+						print(query_taxid)
 					elif len(taxids_list) == 1:
 						query_taxid = taxids_list[0]
 					else:
 						continue
 				if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb):
+					print('Query is child of parent taxid')
 					correct_taxa = True
 					belonging_hits_count += 1
 					if belonging_query_min_eval == -1 or belonging_query_min_eval > query_hit_evalue:
