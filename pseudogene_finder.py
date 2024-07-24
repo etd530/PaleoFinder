@@ -5,11 +5,11 @@
 Reconstruct highly degraded pseudogenes by means of sliding window-based subsequent alignments from a seed alignment.
 
 Usage: 
-	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR --parent_taxid=INT [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --diamond --diamond_block_size=FLT --excluded_taxids=STR --no_gap_bridging] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR --parent_taxid=INT [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --diamond --diamond_block_size=FLT --excluded_taxids=STR --no_gap_bridging --taxdb=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py tblastn --proteins=FASTA --genome=FASTA [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --outprefix=STR] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py extend --proteins=FASTA --genome=FASTA --tblastn_output=STR [--outprefix=STR --no_gap_bridging] [-v|--verbose] [-h|--help]
 	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py filter_blastp --proteins=FASTA --blastp_output=STR --parent_taxid=INT [--excluded_taxids=STR --outprefix=STR] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py filter_blastp --proteins=FASTA --blastp_output=STR --parent_taxid=INT [--excluded_taxids=STR --outprefix=STR --taxdb=STR] [-v|--verbose] [-h|--help]
 
     Options:
         -p, --proteins FASTA                      Input query proteins for that serve as reference to find pseudogenes, in FASTA format. Can contain multiple sequences
@@ -29,6 +29,7 @@ Usage:
         --blastp_output STR                       Name of the file containing the blastp/diamond output to filter.
         --diamond                                 Use diamond instead of NCBI's blastp for the final validation.
         --diamond_block_size FLT                  Block size to use for diamond; note diamond will use up to about 6 times this value in GBs of RAM [default: 2]
+        --taxdb STR                               Path to the location of custom nodes.dmp, names.dmp, and merged.dmp.
         --parent_taxid INT                        Taxid from NCBI's Taxonomy database specifying a taxa to which the blastp hits are expected to belong. Required to filter the blastp output by taxonomic identity.
         --excluded_taxids STR                     Comma-separated list of taxids to exclude from the blastp results. Usually you want to exlucde the organisms whose genome you are screening to avoid self-hits.
         -o, --outprefix STR                       Prefix to use for output files [default: pseudogene_finder].
@@ -1549,9 +1550,10 @@ if __name__ == '__main__':
 			if args['--verbose']:
 				print("Filtering BLASTp output...")
 			if args['--excluded_taxids'] is not None:
-				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
+				taxdb_path = args['--taxdb']
+				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, taxdb_path + '/nodes.dmp', taxdb_path + '/names.dmp', taxdb_path + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 			else:
-				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, os.path.dirname(__file__).strip('.') + '/nodes.dmp', os.path.dirname(__file__).strip('.') + '/names.dmp', os.path.dirname(__file__).strip('.') + '/merged.dmp')
+				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, taxdb_path + '/nodes.dmp', taxdb_path + '/names.dmp', taxdb_path + '/merged.dmp')
 			blastp_results.to_csv(blast_file, sep = '\t', index = False)
 			subset_fasta(blastp_results)
 			subset_gff(blastp_results)
