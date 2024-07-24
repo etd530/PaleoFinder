@@ -1137,6 +1137,8 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		nonbelonging_hits_count = 0
 		for index, row in df_subset.iterrows():
 			query_taxid = str(row['staxids'])
+			print('Index of current query:')
+			print(index)
 			print('Taxids of the current query:')
 			print(query_taxid)
 			query_seqids = str(row['sallseqid'])
