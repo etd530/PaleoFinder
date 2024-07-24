@@ -1137,6 +1137,9 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		nonbelonging_hits_count = 0
 		for index, row in df_subset.iterrows():
 			query_taxid = str(row['staxids'])
+			if query_taxid == 'nan': # This seems to happen when there is a mismatch, for example the accession2taxid does not include some accessions that are in the database
+				print('WARNING: No taxid found for query on line %s, skipping line. Please revise the BLASTP output, this may be caused by a mismatch between the taxonomy files and the BLASTP database.' % index)
+				continue
 			print('Index of current query:')
 			print(index)
 			print('Taxids of the current query:')
