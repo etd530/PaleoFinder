@@ -1550,10 +1550,16 @@ if __name__ == '__main__':
 			if args['--verbose']:
 				print("Filtering BLASTp output...")
 			if args['--excluded_taxids'] is not None:
+				if args['--taxdb'] is not None:
+					taxdb_path = args['--taxdb']
+					blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, taxdb_path + '/nodes.dmp', taxdb_path + '/names.dmp', taxdb_path + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
+				else:
+					blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, excluded_taxids_list = args['--excluded_taxids'])
+			elif args['--taxdb'] is not None:
 				taxdb_path = args['--taxdb']
-				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, taxdb_path + '/nodes.dmp', taxdb_path + '/names.dmp', taxdb_path + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
-			else:
 				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, taxdb_path + '/nodes.dmp', taxdb_path + '/names.dmp', taxdb_path + '/merged.dmp')
+			else:
+				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict)
 			blastp_results.to_csv(blast_file, sep = '\t', index = False)
 			subset_fasta(blastp_results)
 			subset_gff(blastp_results)
