@@ -1177,8 +1177,10 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 									pass
 
 						taxa_list = list(try_taxa_list(taxids_list, taxdb))
-						
-						query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
+						if len(taxa_list) > 1:
+							query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
+						else:
+							query_taxid = taxa_list[0]
 						print("LCA of the taxids assigned to the query is:")
 						print(query_taxid)
 					elif len(taxids_list) == 1:
