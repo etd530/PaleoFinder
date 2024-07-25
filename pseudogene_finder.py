@@ -1255,9 +1255,12 @@ def subset_gff(blastp_filtered_summary):
 					gff_entry = line.strip().split('\t')
 					peptide_number = gff_entry[8].split(';')[0].replace('ID=pseudogene_', '')
 					peptide_name = gff_entry[0] + '___' + file.replace('extended_peptides_all_gff/', '').replace('pseudogene_finder', '').replace('reconstructed_peptides.gff', '') + '___' + 'pseudopeptide_candidate_' + peptide_number
-					# print(peptide_name)
+					print(peptide_name)
 					if peptide_name in seqids2keep:
+						print('Peptide needs to be kept')
 						file_string = file_string + line
+					else:
+						print('Peptide does not need to be kept')
 		if file_string != '##gff-version 3\n':
 			with open(file.replace('.gff', '.filtered.gff').replace('extended_peptides_all_gff', 'filtered_peptides_gff'), 'w') as wh:
 				wh.write(file_string)
