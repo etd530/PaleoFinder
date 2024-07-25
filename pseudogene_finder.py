@@ -1036,8 +1036,17 @@ def is_child(query_taxid, parent_taxid, taxdb):
 	Returns:
 		A Boolean value indicating whether or not query_taxid is a child node of parent_taxid.
 	"""
-	query_taxon = taxopy.Taxon(query_taxid, taxdb)
-	parent_taxon = taxopy.Taxon(parent_taxid, taxdb)
+	try:
+		query_taxon = taxopy.Taxon(query_taxid, taxdb)
+	except taxopy.exceptions.TaxidError:
+		print('WARNING: the query taxid %s was not found. Please revise this is a valid taxid and, if so, update your taxDB or let PaleoFinder download it automatically.' % query_taxid)
+		raise
+	try:
+		parent_taxon = taxopy.Taxon(parent_taxid, taxdb)
+	except taxopy.exceptions.TaxidError:
+		print('WARNING: the parent taxid %s was not found. Please revise this is a valid taxid and, if so, update your taxDB or let PaleoFinder download it automatically.' % query_taxid)
+		raise
+
 	lca_taxon = taxopy.find_lca([query_taxon, parent_taxon], taxdb)
 	
 	if lca_taxon.taxid == parent_taxon.taxid:
@@ -1167,7 +1176,11 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 						query_taxid = taxids_list[0]
 					else:
 						continue
-				if is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb):
+				try:
+					is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb)
+				except:
+					continue
+				if :
 					print('Query is child of parent taxid')
 					correct_taxa = True
 					belonging_hits_count += 1
