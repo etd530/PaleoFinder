@@ -1177,10 +1177,10 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 					else:
 						continue
 				try:
-					is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb)
+					is_child_bool = is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb)
 				except:
 					continue
-				if :
+				if is_child_bool:
 					print('Query is child of parent taxid')
 					correct_taxa = True
 					belonging_hits_count += 1
