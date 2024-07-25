@@ -1168,7 +1168,16 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 					if len(taxids_list) > 1: # make sure we still have some taxids to look for
 						print('More than one taxid assigned to the query:')
 						print(taxids_list)
-						taxa_list = [taxopy.Taxon(x, taxdb) for x in taxids_list]
+						
+						def try_taxa_list(taxids_list, taxdb): # helper function to handle exceptions in the buildling of the list of taxid objects
+							for taxid in taxids_list:
+								try:
+									yield taxopy.Taxon(taxid, taxdb)
+								except:
+									pass
+
+						taxa_list = list(try_taxa_list(taxids_list, taxdb))
+						
 						query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
 						print("LCA of the taxids assigned to the query is:")
 						print(query_taxid)
