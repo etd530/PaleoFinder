@@ -1360,10 +1360,13 @@ if __name__ == '__main__':
 			matrix=args['--tblastn_matrix'], max_evalue=args['--tblastn_max_evalue'], seg_filter=args['--tblastn_seg_filter'], 
 			threads = args['--tblastn_threads'], outprefix=args['--outprefix'])
 
-	if args['tblastn']:
-		if args ['--verbose']:
-			print("tBLASTn completed.\nExecution finished.")
-		exit()
+		if args['--verbose']:
+			print("tBLASTn completed.")
+		
+	if args['--tblastn']:
+		if args['--verbose']:
+			print("Execution finished.")
+		sys.exit()
 
 	if args['extend']:
 		tblastn_output = pd.read_csv(args['--tblastn_output'], sep='\t', header = None)
@@ -1538,10 +1541,12 @@ if __name__ == '__main__':
 								id_num += len(peptide_sequences)
 		# Remove temporary files used for alignments
 		os.system('rm *.fa && rm lalign.aln && rm lalign.log')
+		if args['--verbose']:
+			print("Seed extension phase completed.")
 	
 	if args['extend']:
 		if args['--verbose']:
-			print('Seed extension phase completed.\nExecution finished.')
+			print('Execution finished.')
 		sys.exit()
 
 	if args['blastp'] or args['runall']:
@@ -1558,10 +1563,12 @@ if __name__ == '__main__':
 
 		# Remove file with all sequences concatenated which is not needed
 		os.system('rm -f reconstructed_peptides_all.fasta')
+		if args['--verbose']:
+			print('BLASTp completed.')
 
 	if args['blastp']:
 		if args['--verbose']:
-			print("BLASTp completed.\nExecution finished.")
+			print("Execution finished.")
 		sys.exit()
 
 	if args['filter_blastp']:
