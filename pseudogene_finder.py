@@ -1363,7 +1363,7 @@ if __name__ == '__main__':
 		if args['--verbose']:
 			print("tBLASTn completed.")
 		
-	if args['--tblastn']:
+	if args['tblastn']:
 		if args['--verbose']:
 			print("Execution finished.")
 		sys.exit()
