@@ -1020,9 +1020,13 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 	try:
 		blastp_results = pd.read_csv(blast_file, sep='\t', header = None, dtype = {14: 'str'}) # specify str for staxids since there can be multiple ones separated by semicolons
 	except pd.errors.EmptyDataError:
+		# remove file with all sequences for blast which is not needed anymore
+		os.system('rm -f reconstructed_peptides_all.fasta')
 		print("No hits obtained from blastp, exiting program.")
 		sys.exit(0)
 	blastp_results.rename(columns={0: 'qseqid', 1:'qlen', 2: 'sallseqid', 3: 'slen', 4: 'pident', 5: 'length', 6: 'mismatch', 7: 'gapopen', 8: 'qstart', 9: 'qend', 10: 'sstart', 11: 'send', 12: 'evalue', 13: 'bitscore', 14: 'stitle', 15: 'staxids', 16: 'sscinames'}, inplace = True)
+	# remove file with all sequences for blast which is not needed anymore
+	os.system('rm -f reconstructed_peptides_all.fasta')
 	return(blastp_results)
 
 def is_child(query_taxid, parent_taxid, taxdb):
@@ -1562,8 +1566,6 @@ if __name__ == '__main__':
 			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
 				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'])
 
-		# Remove file with all sequences concatenated which is not needed
-		os.system('rm -f reconstructed_peptides_all.fasta')
 		if args['--verbose']:
 			print('BLASTp completed.')
 
