@@ -1020,7 +1020,8 @@ def blastp(query, target, wordsize, matrix, max_evalue, threads, outprefix, bloc
 	try:
 		blastp_results = pd.read_csv(blast_file, sep='\t', header = None, dtype = {14: 'str'}) # specify str for staxids since there can be multiple ones separated by semicolons
 	except pd.errors.EmptyDataError:
-		sys.exit("No hits obtained from blastp, exiting program.")
+		print("No hits obtained from blastp, exiting program.")
+		sys.exit(0)
 	blastp_results.rename(columns={0: 'qseqid', 1:'qlen', 2: 'sallseqid', 3: 'slen', 4: 'pident', 5: 'length', 6: 'mismatch', 7: 'gapopen', 8: 'qstart', 9: 'qend', 10: 'sstart', 11: 'send', 12: 'evalue', 13: 'bitscore', 14: 'stitle', 15: 'staxids', 16: 'sscinames'}, inplace = True)
 	return(blastp_results)
 
