@@ -1224,7 +1224,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 			alien_indexes[query] = np.inf
 		else:
 			alien_indexes[query] = np.log10(nonbelonging_query_min_eval) - np.log10(belonging_query_min_eval)
-		blastp_summary['alien_index'][current_index] = alien_indexes[query]
+		blastp_summary[current_index, 'alien_index'] = alien_indexes[query]
 		if correct_taxa and homolog_in_hits and alien_indexes[query] > 0:
 			peptides_to_keep.append(query)
 		blastp_subset_df = blastp_df.loc[blastp_df['qseqid'].isin(peptides_to_keep)][blastp_df.columns]
