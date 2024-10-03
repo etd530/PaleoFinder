@@ -1206,12 +1206,12 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 					nonbelonging_hits_count += 1
 					if nonbelonging_query_min_eval == -1 or nonbelonging_query_min_eval > query_hit_evalue:
 						nonbelonging_query_min_eval = query_hit_evalue
-		blastp_summary['belonging_hits_count'][current_index] = belonging_hits_count
-		blastp_summary['nonbelonging_hits_count'][current_index] = nonbelonging_hits_count
-		blastp_summary['belonging_min_eval'][current_index] = belonging_query_min_eval
-		blastp_summary['nonbelonging_min_eval'][current_index] = nonbelonging_query_min_eval
-		blastp_summary['length (aminoacid)'][current_index] = df_subset['qlen'][df_subset.index[0]] # taking into accound the df_subset has hits all from same query so qlen will be the same for all rows
-		blastp_summary['position_in_scaffold'][current_index] = coordinates
+		blastp_summary.loc[current_index, 'belonging_hits_count'] = belonging_hits_count
+		blastp_summary.loc[current_index, 'nonbelonging_hits_count'] = nonbelonging_hits_count
+		blastp_summary.loc[current_index, 'belonging_min_eval'] = belonging_query_min_eval
+		blastp_summary.loc[current_index, 'nonbelonging_min_eval'] = nonbelonging_query_min_eval
+		blastp_summary.loc[current_index, 'length (aminoacid)'] = df_subset['qlen'][df_subset.index[0]] # taking into accound the df_subset has hits all from same query so qlen will be the same for all rows
+		blastp_summary.loc[current_index, 'position_in_scaffold'] = coordinates
 		if belonging_query_min_eval == -1:
 			alien_indexes[query] = -np.inf # we use -Inf and Inf when Alien Index cannot be computed because either there are no belonging queries or no non-belonging queries
 		elif nonbelonging_query_min_eval == -1:
