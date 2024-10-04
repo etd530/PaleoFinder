@@ -33,4 +33,3 @@ Then the pipeline can be run as:
 pseudogene_finder.py runall --proteins=<your_proteme_file> --genome=<your_genome_file> --blastp_db=<your_blastp_database> --parent_taxid=<taxid_of_your_target>
 ```
 The `--parent_taxid` flag specifies the taxonomy ID of your organism of interest, which you can find in the [NCBI Taxonomy database](https://www.ncbi.nlm.nih.gov/taxonomy). For example, if you are looking for inerstions of a Nudivirus in a genome, you may use the taxonomy ID of Nudiviridae.
-
