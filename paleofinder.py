@@ -225,8 +225,8 @@ def align_peptides_simple(protein, peptide):
 		if not status:
 			os.system('''cat lalign.aln | head -n -10 | tail -n +20 > pairwise_seqs.fa && \
 				seqindex1=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | head -n1` && \
-				seqindex2=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | tail -n1` && seqname=`head -n1 seqa.fa | sed -E 's/\//_/g'` && \
-				sed -Ei "${seqindex1}s/.*/${seqname}/" pairwise_seqs.fa && seqname=`head -n1 seqb.fa | sed -E 's/\//_/g'` && \
+				seqindex2=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | tail -n1` && seqname=`head -n1 seqa.fa | sed -E 's/\\//_/g'` && \
+				sed -Ei "${seqindex1}s/.*/${seqname}/" pairwise_seqs.fa && seqname=`head -n1 seqb.fa | sed -E 's/\\//_/g'` && \
 				sed -Ei "${seqindex2}s/.*/${seqname}/" pairwise_seqs.fa && cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa''')
 	# if os.path.isfile('pairwise_seqs.fa'):
 	if not status:
