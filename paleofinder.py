@@ -1141,12 +1141,13 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 							coordinates = coordinates+","+"..".join(gff_entry[3:5])
 			if orientation == '-':
 				coordinates = coordinates + ")"
-
 		correct_taxa = False
 		homolog_in_hits = False
 		df_subset = blastp_df.loc[blastp_df['qseqid'] == query]
 		belonging_query_min_eval = -1
 		nonbelonging_query_min_eval = -1
+		belonging_evals_list = []
+		nonbelonging_evals_list = []
 		belonging_hits_count = 0
 		nonbelonging_hits_count = 0
 		for index, row in df_subset.iterrows():
@@ -1156,8 +1157,6 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 				continue
 			print('Index of current query:')
 			print(index)
-			print('Taxids of the current query:')
-			print(query_taxid)
 			query_seqids = str(row['sallseqid'])
 			# check if the target protein homolog is among the hits of that particular candidate peptide
 			if protein_homolog_seqid in query_seqids:
@@ -1168,20 +1167,24 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 				print(query_taxid)
 				print('PARENT:')
 				print(parent_taxid)
+				# if there is more than one taxid, split them into a list
 				if ';' in query_taxid:
 					taxids_list = [int(x) for x in query_taxid.split(';') if x not in excluded_taxids_list] # make sure this taxid is not of the ones we want to exclude
 					if len(taxids_list) > 1: # make sure we still have some taxids to look for
 						print('More than one taxid assigned to the query:')
 						print(taxids_list)
-						
-						def try_taxa_list(taxids_list, taxdb): # helper function to handle exceptions in the buildling of the list of taxid objects
+						# helper function to handle exceptions in the buildling of the list of taxid objects
+						def try_taxa_list(taxids_list, taxdb):
 							for taxid in taxids_list:
 								try:
 									yield taxopy.Taxon(taxid, taxdb)
 								except:
 									pass
-
+						# make list of taxon objects from list of taxids
 						taxa_list = list(try_taxa_list(taxids_list, taxdb))
+						# if there are multiple taxids, find the last common ancestor of all of them to check if that belongs or not
+						# (so if there is a nudivirus and a wasp in the list it counts as not belonging right now, although I think multiple taxids are always for really close taxa)
+						# if there is only one taxid then just take that one
 						if len(taxa_list) > 1:
 							query_taxid = taxopy.find_lca(taxa_list, taxdb).taxid
 						else:
@@ -1192,18 +1195,22 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 						query_taxid = taxids_list[0]
 					else:
 						continue
+				# check if the taxid of the hit belongs to the taxid of interest
 				try:
 					is_child_bool = is_child(query_taxid = int(query_taxid), parent_taxid = int(parent_taxid), taxdb = taxdb)
 				except:
 					continue
+				# if it does then add this to the count of belonging hits, else to the non-belonging hits, update the min e-values if needed
 				if is_child_bool:
 					print('Query is child of parent taxid')
 					correct_taxa = True
 					belonging_hits_count += 1
+					belonging_evals_list.append(query_hit_evalue)
 					if belonging_query_min_eval == -1 or belonging_query_min_eval > query_hit_evalue:
 						belonging_query_min_eval = query_hit_evalue
 				else:
 					nonbelonging_hits_count += 1
+					nonbelonging_evals_list.append(query_hit_evalue)
 					if nonbelonging_query_min_eval == -1 or nonbelonging_query_min_eval > query_hit_evalue:
 						nonbelonging_query_min_eval = query_hit_evalue
 		blastp_summary.loc[current_index, 'belonging_hits_count'] = belonging_hits_count
@@ -1212,18 +1219,10 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		blastp_summary.loc[current_index, 'nonbelonging_min_eval'] = nonbelonging_query_min_eval
 		blastp_summary.loc[current_index, 'length (aminoacid)'] = df_subset['qlen'][df_subset.index[0]] # taking into accound the df_subset has hits all from same query so qlen will be the same for all rows
 		blastp_summary.loc[current_index, 'position_in_scaffold'] = coordinates
-		if belonging_query_min_eval == -1:
-			alien_indexes[query] = -np.inf # we use -Inf and Inf when Alien Index cannot be computed because either there are no belonging queries or no non-belonging queries
-		elif nonbelonging_query_min_eval == -1:
-			alien_indexes[query] = np.inf
-		elif nonbelonging_query_min_eval == 0 and belonging_query_min_eval == 0:
-			alien_indexes[query] = 0
-		elif nonbelonging_query_min_eval == 0:
-			alien_indexes[query] = -np.inf
-		elif belonging_query_min_eval == 0:
-			alien_indexes[query] = np.inf
-		else:
-			alien_indexes[query] = np.log10(nonbelonging_query_min_eval) - np.log10(belonging_query_min_eval)
+		
+		# Compute alien index for the query and add it to the dictionary
+		alien_indexes[query] = alien_index(belonging_evals_list, nonbelonging_evals_list)
+
 		blastp_summary[current_index, 'alien_index'] = alien_indexes[query]
 		if correct_taxa and homolog_in_hits and alien_indexes[query] > 0:
 			peptides_to_keep.append(query)
@@ -1234,6 +1233,43 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 	blastp_summary.to_csv('reconstructed_peptides_all.blastp.summary.tsv', sep = '\t', index = False)
 	blastp_filtered_summary = blastp_summary.loc[blastp_summary['query'].isin(peptides_to_keep)][blastp_summary.columns]
 	return(blastp_subset_df, blastp_filtered_summary)
+
+def alien_index(belonging_evals_list, nonbelonging_evals_list):
+	"""
+	Given the list of belonging and non-belonging e-values, compute the alien index.
+
+	Arguments:
+		belonging_evals_list: list of e-values from the hits belonging to the target taxon.
+		nonbelonging_evals_list: list of e-values from the hits NOT belonging to the target taxon.
+
+	Returns:
+		The alien index value
+	"""
+	# If there are no belonging hits, do alien index = -Inf
+	if len(belonging_evals_list) == 0:
+		alien_index = -np.inf
+	# If there are no non-belonging hits, do alien index = -Inf
+	elif len(nonbelonging_evals_list) == 0:
+		alien_index = np.inf
+	else:
+	# Since an e-value of 0 basically means very small, but breaks the log, we turn them to the smallest number standard Python can read (apparently 2.2e-308)
+		belonging_evals_list = [x if x != 0 else 2.2e-308 for x in belonging_evals_list]
+		nonbelonging_evals_list = [x if x != 0 else 2.2e-308 for x in nonbelonging_evals_list]
+
+	# Then we can just compute the alien index by the formula
+	# elif sum(nonbelonging_evals_list) == 0 and sum(belonging_evals_list) == 0:
+	# 	alien_index = 0
+	# # If all hits are e-value zero in non-belonging but not vice-versa, return -Inf
+	# elif sum(nonbelonging_evals_list) == 0:
+	# 	alien_index = -np.inf
+	# # If all hits are e-value zero in belonging but not vice-versa, return -Inf
+	# elif sum(belonging_evals_list) == 0:
+	# 	alien_index = np.inf
+	# # Else if there are non-zero hits in both lists compute alien index by the formula
+		belonging_logs = [np.log10(x) for x in belonging_evals_list if x != 0]
+		nonbelonging_logs = [np.log10(x) for x in nonbelonging_evals_list if x != 0]
+		alien_index = sum(nonbelonging_logs) - sum(belonging_logs)
+	return(alien_index)
 
 def subset_fasta(blastp_filtered_summary):
 	"""
