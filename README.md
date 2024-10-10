@@ -1,18 +1,20 @@
 # PaleoFinder
 
 ## Installation
-To run `PaleoFinder` you will need `Pyhton 3` and the following `Python` libraries:
-- `docopt`
-- `Bioptyhon`
-- `os`
-- `Pandas`
-- `glob`
-- `sys`
-- `numpy`
-- `subprocess`
-- `taxopy`
-- `re`
-- `math`
+`PaleoFinder` has the following depenencies:
+| Software/Package | Version |
+| ---------------- | ------- |
+| `Python`         | 3.12.6  |
+| `docopt`         | 0.6.2   |
+| `bioptyhon`      | 1.84    |
+| `pandas`         | 2.2.3   |
+| `numpy`          | 2.1.1   |
+| `taxopy`         | 0.13.0  |
+| EMBOSS           | 6.6.0   |
+| BLAST            | 2.16.0+ |
+| Diamond          | 2.1.9   |
+| lalign36         | 36.3.8i |
+
 To install the pipeline, simply clone this repository and install the required Python packages through `pip`. You will also need either `BLAST` or `diamond` (or both), the `EMBOSS` suite, and `lalign36` from the [`fasta36` package](https://github.com/wrpearson/fasta36).
 
 In addition, to run the program you will need some blast or diamond protein databases, as well as a taxonomy database. We recommend building a blast or diamond database from the NR database of NCBI and using the [taxdump files](https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip) form NCBI for the taxonomy, but you can use other ones if you want to.
