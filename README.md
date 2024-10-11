@@ -15,21 +15,33 @@
 | Diamond          | 2.1.9   |
 | lalign36         | 36.3.8i |
 
-To install the pipeline, simply clone this repository and install the required Python packages through `pip`. You will also need either `BLAST` or `diamond` (or both), the `EMBOSS` suite, and `lalign36` from the [`fasta36` package](https://github.com/wrpearson/fasta36).
-
-In addition, to run the program you will need some blast or diamond protein databases, as well as a taxonomy database. We recommend building a blast or diamond database from the NR database of NCBI and using the [taxdump files](https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip) form NCBI for the taxonomy, but you can use other ones if you want to.
-
-Note that for `diamond`, you will also need the [prot.accession2taxid](https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/prot.accession2taxid.FULL.gz) to be able to use taxonomy IDs with the database. You can build the database as follows:
-
+To install the pipeline, frist clone this repository:
 ```
-diamond makedb --in ../nr/nr.gz --db nr -p 20 --taxonmap prot.accession2taxid.FULL.gz --taxonnodes nodes.dmp --taxonnames names.dmp
+git clone https://github.com/etd530/PaleoFinder
+```
+Afterwards install dependencies using Conda:
+```
+cd PaleoFinder && conda env create -f environment.yml
+```
+This should install all the necessary dependencies to run the program. To verify the installation, run:
+```
+./paleofinder --help
+```
+You should see the help of the program. As an extra check, you can run:
+```
+cd test_dataset
+../paleofinder.py runall --proteins OrNV_ACH96265.faa --genome venturia_canescens.bipaa.v1.fna --blastp_db viral_proteins.dmnd --parent_taxid 1511852 --diamond --outdir diamond_test > paleofinder.diamond.out 2>paleofinder.diamond.err
+../paleofinder.py runall --proteins OrNV_ACH96265.faa --genome venturia_canescens.bipaa.v1.fna --blastp_db viral_proteins.faa --parent_taxid 1511852 --outdir blastp_test > paleofinder.blastp.out 2>paleofinder.blastp.err
 ```
 
 ## How to run the program
 In order to run the pipeline you will need:
 - The proteome of an organism you want to screen for, in FASTA format.
 - The genome where you want to look for horizontal transfers of the organisms to which the proteome belongs, in FASTA format.
-
+- A sequence database and a taxonomy database against which validate the final hits. We recommend building a blast or diamond database from the NR database of NCBI and using the [taxdump files](https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip) from NCBI for the taxonomy, but you can use other ones if you want to. Note that for `diamond`, you will also need the [prot.accession2taxid](https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/prot.accession2taxid.FULL.gz) to be able to use taxonomy IDs with the database. You can build the database as follows:
+```
+diamond makedb --in ../nr/nr.gz --db nr -p 20 --taxonmap prot.accession2taxid.FULL.gz --taxonnodes nodes.dmp --taxonnames names.dmp
+```
 Then the pipeline can be run as:
 ```
 pseudogene_finder.py runall --proteins=<your_proteme_file> --genome=<your_genome_file> --blastp_db=<your_blastp_database> --parent_taxid=<taxid_of_your_target>
