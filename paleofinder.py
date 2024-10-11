@@ -5,11 +5,11 @@
 Reconstruct highly degraded pseudogenes by means of sliding window-based subsequent alignments from a seed alignment.
 
 Usage: 
-	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR --parent_taxid=INT [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --diamond --diamond_block_size=FLT --excluded_taxids=STR --no_gap_bridging --taxdb=STR] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py tblastn --proteins=FASTA --genome=FASTA [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --outprefix=STR] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py extend --proteins=FASTA --genome=FASTA --tblastn_output=STR [--outprefix=STR --no_gap_bridging] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT] [-v|--verbose] [-h|--help]
-	pseudogene_finder.py filter_blastp --proteins=FASTA --blastp_output=STR --parent_taxid=INT [--excluded_taxids=STR --outprefix=STR --taxdb=STR] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py runall --proteins=FASTA --genome=FASTA --blastp_db=STR --parent_taxid=INT [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --outprefix=STR --outdir=STR --diamond --diamond_block_size=FLT --excluded_taxids=STR --no_gap_bridging --taxdb=STR] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py tblastn --proteins=FASTA --genome=FASTA [--tblastn_wordsize=INT --tblastn_matrix=STR --tblastn_max_evalue=FLT --tblastn_seg_filter=STR --tblastn_threads=INT --outprefix=STR --outdir=STR] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py extend --proteins=FASTA --genome=FASTA --tblastn_output=STR [--outprefix=STR --outdir=STR --no_gap_bridging] [-v|--verbose] [-h|--help]
+	pseudogene_finder.py blastp --blastp_db=STR [--blastp_wordsize=INT --blastp_matrix=STR --blastp_max_evalue=FLT --blastp_threads=INT --diamond --diamond_block_size=FLT] [--outprefix=STR --outdir=STR -v|--verbose] [-h|--help]
+	pseudogene_finder.py filter_blastp --proteins=FASTA --blastp_output=STR --parent_taxid=INT [--excluded_taxids=STR --outprefix=STR --outdir=STR --taxdb=STR] [-v|--verbose] [-h|--help]
 
     Options:
         -p, --proteins FASTA                      Input query proteins for that serve as reference to find pseudogenes, in FASTA format. Can contain multiple sequences
@@ -32,7 +32,8 @@ Usage:
         --taxdb STR                               Path to the location of custom nodes.dmp, names.dmp, and merged.dmp.
         --parent_taxid INT                        Taxid from NCBI's Taxonomy database specifying a taxa to which the blastp hits are expected to belong. Required to filter the blastp output by taxonomic identity.
         --excluded_taxids STR                     Comma-separated list of taxids to exclude from the blastp results. Usually you want to exlucde the organisms whose genome you are screening to avoid self-hits.
-        -o, --outprefix STR                       Prefix to use for output files [default: pseudogene_finder].
+        -o, --outprefix STR                       Prefix to use for output files [default: paleofinder].
+        -d, --outdir STR                          Directory to store all the output [default: ./]
         -v, --verbose                             Print the progressions of the program to the terminal (Standard Error).
         -h, --help                                Show this help message and exit.
 """
@@ -186,13 +187,14 @@ def translate_dna(fragments_list, frame = 0):
 			peptide = hit[0][2][frame:].translate()
 			fragments_list[scaffold][fragments_list[scaffold].index(hit)][0].insert(3, peptide)
 
-def align_peptides_simple(protein, peptide):
+def align_peptides_simple(protein, peptide, outprefix):
 	"""
 	Align 2 aminoacid sequences using the specified program (either EMBOSS Needle for global alignment of lalign36 for non-overlapping local alignments).
 
 	Arguments:
 		protein: one of the AA sequences.
 		peptide: the other AA sequence.
+		outprefix: prefix to use for output files and directories.
 	Returns:
 		An alignment object.
 	"""
@@ -205,7 +207,9 @@ def align_peptides_simple(protein, peptide):
 		with open("seqb.fa", "w") as fh:
 			fh.write('>fragment_peptide\n%s\n' % peptide)
 		os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta -auto Y -sprotein1 Y -sprotein2 Y')
-		status = os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
+		print(outprefix)
+		command = 'cat pairwise_seqs.fa >> ' + outprefix + '.alignments/pairwise_seqs.tmp.fa'
+		status = os.system(command)
 		alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
 		# Align with Clustal Omega (Needle works best for our case for now)
 		# with open("input_seqs.fa", 'w') as fh:
@@ -227,19 +231,21 @@ def align_peptides_simple(protein, peptide):
 				seqindex1=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | head -n1` && \
 				seqindex2=`grep -n '^>' pairwise_seqs.fa | cut -f1 -d':' | tail -n1` && seqname=`head -n1 seqa.fa | sed -E 's/\\//_/g'` && \
 				sed -Ei "${seqindex1}s/.*/${seqname}/" pairwise_seqs.fa && seqname=`head -n1 seqb.fa | sed -E 's/\\//_/g'` && \
-				sed -Ei "${seqindex2}s/.*/${seqname}/" pairwise_seqs.fa && cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa''')
+				sed -Ei "${seqindex2}s/.*/${seqname}/" pairwise_seqs.fa && cat pairwise_seqs.fa >> %s.alignments/pairwise_seqs.tmp.fa''' % outprefix)
 	# if os.path.isfile('pairwise_seqs.fa'):
 	if not status:
 		alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
 		return(alignment)
 
-def align_bridges(protein_gap, bridge):
+def align_bridges(protein_gap, bridge, outprefix):
 	"""
 	Align 2 aminoacid sequences using EMBOSS Needle.
 
 	Arguments:
 		protein_gap: the gap in the protein homolog that needs to be covered.
 		bridge: the peptide obtained by translating the genome that should be able to cover the gap in the protein homolog.
+		outprefix: prefix to use for output files and directories.
+
 	Returns:
 		An alignment object.
 	"""
@@ -249,7 +255,7 @@ def align_bridges(protein_gap, bridge):
 	with open("seqb.fa", "w") as fh:
 		fh.write('>bridge_peptide\n%s\n' % bridge)
 	os.system('needle -asequence seqa.fa -bsequence seqb.fa -gapopen 10 -gapextend 1 -outfile pairwise_seqs.fa -aformat fasta -auto Y -sprotein1 Y -sprotein2 Y')
-	status = os.system('cat pairwise_seqs.fa >> alignments/pairwise_seqs.tmp.fa')
+	status = os.system('cat pairwise_seqs.fa >> %s.alignments/pairwise_seqs.tmp.fa' % outprefix)
 	alignment = AlignIO.read('pairwise_seqs.fa', 'fasta')
 	return(alignment)
 
@@ -269,7 +275,7 @@ def get_scaffold_from_fasta(genome, scaffold):
 			if sequence.id == scaffold:
 				return(sequence.seq)
 
-def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direction = 'downstream', order = 0, fragment_size = 90, do_local = True, reading_frame = 'All'):
+def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, outprefix, direction = 'downstream', order = 0, fragment_size = 90, do_local = True, reading_frame = 'All'):
 	"""
 	Given a short AA sequence, extend it based on similarity of subsequent fragments from the genome of origin to a reference protein sequence.
 
@@ -277,10 +283,12 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 		candidate_peptide: a list containing the start and end coordinates of the peptide in the genome's scaffold and the nucleotide sequence.
 		scaffold: a Seq object containing the sequence of the scaffold form which the peptide was translated.
 		protein_homolog: the protein to which compare subsequent fragments of the protein.
+		outprefix: prefix to create output files and directories.
 		direction: string indicating whether the peptide must be extended upstream or downstream on the scaffold.
 		order: number indicating the number of iterations, used internally to recover the order of the peptides.
 		fragment_size: the size of the fragments to use for the successive alignments to extend the peptide.
 		do_local: whether a local alignment of a longer fragment should be attempted when all 90bp fragments align poorly.
+		
 	Yields:
 		a AA fragment each time that one passes the established thresholds of similarity and contiguity.
 	"""
@@ -335,7 +343,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 			else:
 				print('PEPTIDE FRAME: ' + str(reading_frame))
 			print('PEPTIDE ORDER: ' + str(order))
-			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index])
+			alignment = align_peptides_simple(protein = protein_homolog, peptide = peptides_list[index], outprefix = outprefix)
 			# print(alignment)
 
 			# make sure you actually got an alignment before continuing (local alignment may not return anything)
@@ -609,13 +617,13 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 						
 						# lastly, call the next iteration 
 						yield from extend_candidate_peptide(candidate_peptide = next_fragment_entry, scaffold = scaffold, 
-							protein_homolog = protein_homolog, direction = direction, order = order, do_local = do_local)
+							protein_homolog = protein_homolog, direction = direction, order = order, do_local = do_local, outprefix = outprefix)
 
 			 		# If it does not pass the thresholds AND we have NOT done local alignment yet, start the 300bp local alignment step
 					elif do_local:
 						print("Peptide not good. Starting round of local alignment")
 						yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
-							protein_homolog = protein_homolog, direction = direction, order = order - 1, fragment_size = 300, do_local = False, reading_frame = index)
+							protein_homolog = protein_homolog, direction = direction, order = order - 1, fragment_size = 300, do_local = False, reading_frame = index, outprefix = outprefix)
 					else:
 						print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
 						pass
@@ -624,7 +632,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, direc
 				elif do_local:
 					print("Peptide not good. Starting round of local alignment")
 					yield from extend_candidate_peptide(candidate_peptide = candidate_peptide, scaffold = scaffold,
-						protein_homolog = protein_homolog, direction = direction, order = order - 1, fragment_size = 300, do_local = False, reading_frame = index)
+						protein_homolog = protein_homolog, direction = direction, order = order - 1, fragment_size = 300, do_local = False, reading_frame = index, outprefix = outprefix)
 				else:
 					print("Peptide not good and local alignment tried. Going back one order to test remaining peptides of previous order.")
 					pass
@@ -654,7 +662,7 @@ def number_of_substitutions(seq1, seq2, no_gaps = False):
 	else:
 		return sum(0 if nuc1 == nuc2 else 1 for (nuc1, nuc2) in zip(seq1, seq2))
 
-def gap_bridging(reconstructed_peptides, scaffold, homolog):
+def gap_bridging(reconstructed_peptides, scaffold, homolog, outprefix):
 	"""
 	Given a list of reconstructed candidate peptides, for those with a gap between the fragments both in the genome and when aligned to the protein homolog, try to add more nucleotides of this gap that fill the protein gap.
 
@@ -662,6 +670,7 @@ def gap_bridging(reconstructed_peptides, scaffold, homolog):
 		reconstructed_peptides: list containing the reconstructed peptides from the extension step.
 		scaffold: the scaffold in which the current candidate peptides are located in the query genome.
 		homolog: Seq object of the homolog protein which serves as template to find the candidate pseudogenes
+		outprefix: prefix to create output files and directories.
 
 	Returns:
 		The list of reconstructed peptides with the gaps reduced/fragments bridged.
@@ -810,7 +819,7 @@ def gap_bridging(reconstructed_peptides, scaffold, homolog):
 							print("HOMOLOG GAP SEQ:")
 							print(homolog_gap_seq.seq)
 							
-							alignment = align_bridges(homolog_gap_seq, aa_bridge)
+							alignment = align_bridges(homolog_gap_seq, aa_bridge, outprefix)
 
 							print(alignment[0])
 							print(alignment[1])
@@ -1082,13 +1091,15 @@ def find_functional(homologs_length_dict, blastp_filtered_summary):
 	blastp_filtered_summary['lengths ratio'] = length_ratios_list
 	return blastp_filtered_summary
 
-def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = []):
+def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, outprefix, taxdb_nodes = None, taxdb_names = None, taxdb_merged = None, excluded_taxids_list = []):
 	"""
 	Filter the output of blastp based on the taxonomic assignment of the hits.
 
 	Arguments:
 		blastp_df: Pandas dataframe containing the results of BLASTP.
 		parent_taxid: taxid of the taxon to which the hits should belong.
+		homologs_length_dict: dictionary containing the length of the sequence of each template homolog used for the initial tblastn search.
+		outprefix: prefix to use for output files and directories
 		taxdb_nodes: path to the nodes.dmp file of the NCBI Taxonomy database.
 		taxdb_names: path to the names.dmp file of the NCBI Taxonomy database
 		taxdb_merged: path to the merged.dmp file of the NCBI Taxonomy database.
@@ -1108,6 +1119,8 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 	alien_indexes = {}
 	blastp_summary = pd.DataFrame(data = None, index = [*range(len(queries))], columns = ['query', 'length (aminoacid)', 'belonging_hits_count', 'nonbelonging_hits_count', 
 		'belonging_min_eval', 'nonbelonging_min_eval', 'alien_index', 'position_in_scaffold'])
+	print("HERE")
+	print(blastp_summary.columns)
 	current_index = 0
 	for query in queries:
 		print('QUERY:')
@@ -1120,9 +1133,9 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 		print("PROTEIN HOMOLOG SEQ ID:")
 		print(protein_homolog_seqid)
 		scaffold = query.split("___")[0]
-		gff_name=".".join(["pseudogene_finder", protein_homolog_name, "reconstructed_peptides.gff"])
+		gff_name=".".join([protein_homolog_name, "reconstructed_peptides.gff"])
 		coordinates=""
-		with open("extended_peptides_all_gff/"+gff_name, 'r') as fh:
+		with open(outprefix + ".extended_peptides_all_gff/"+gff_name, 'r') as fh:
 			for gff_entry in fh:
 				gff_entry = gff_entry.split("\t")
 				if gff_entry[0] == scaffold:
@@ -1224,30 +1237,39 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, taxdb_no
 			alien_indexes[query] = np.inf
 		else:
 			alien_indexes[query] = np.log10(nonbelonging_query_min_eval) - np.log10(belonging_query_min_eval)
-		blastp_summary[current_index, 'alien_index'] = alien_indexes[query]
+		print("HERE")
+		print(blastp_summary.columns)
+		blastp_summary.loc[current_index, 'alien_index'] = alien_indexes[query]
+		print("HERE")
+		print(blastp_summary.columns)
 		if correct_taxa and homolog_in_hits and alien_indexes[query] > 0:
 			peptides_to_keep.append(query)
 		blastp_subset_df = blastp_df.loc[blastp_df['qseqid'].isin(peptides_to_keep)][blastp_df.columns]
 		blastp_subset_df = blastp_subset_df.loc[~blastp_subset_df['staxids'].isin(excluded_taxids_list)][blastp_subset_df.columns]
 		current_index += 1
+	print("HERE2")
+	print(blastp_summary.columns)
 	blastp_summary = find_functional(homologs_length_dict = homologs_length_dict, blastp_filtered_summary = blastp_summary)
-	blastp_summary.to_csv('reconstructed_peptides_all.blastp.summary.tsv', sep = '\t', index = False)
+	blastp_summary.to_csv(outprefix + '.reconstructed_peptides_all.blastp.summary.tsv', sep = '\t', index = False)
 	blastp_filtered_summary = blastp_summary.loc[blastp_summary['query'].isin(peptides_to_keep)][blastp_summary.columns]
 	return(blastp_subset_df, blastp_filtered_summary)
 
-def subset_fasta(blastp_filtered_summary):
+def subset_fasta(blastp_filtered_summary, outprefix):
 	"""
 	Write new FASTA files containing only those peptides that pass the filtering thresholds.
 
 	Arguments:
 		blastp_filtered_summary: Pandas dataframe containing the filtered blastp results.
+		outprefix: prefix to use to name the files and create directories
 
 	Returns:
 		None. Writes the FASTA files to disk.
 	"""
-	os.system("mkdir -p filtered_peptides_fasta")
+	outpath = outprefix + '.filtered_peptides_fasta'
+	command = "mkdir -p " + outpath
+	os.system(command)
 	seqids2keep = list(blastp_filtered_summary['qseqid'])
-	files_list = glob.glob('extended_peptides_all_fasta/*.fasta')
+	files_list = glob.glob(outprefix + '.extended_peptides_all_fasta/*.fasta')
 	for file in files_list:
 		file_string = ''
 		with open(file, 'r') as fh:
@@ -1258,19 +1280,22 @@ def subset_fasta(blastp_filtered_summary):
 			with open(file.replace('.fasta', '.filtered.fasta').replace('extended_peptides_all_fasta', 'filtered_peptides_fasta'), 'w') as wh:
 				wh.write(file_string)
 
-def subset_gff(blastp_filtered_summary):
+def subset_gff(blastp_filtered_summary, outprefix):
 	"""
 	Write new GFF files containing only those peptides that pass the filtering thresholds.
 
 	Arguments:
 		blastp_filtered_summary: Pandas dataframe containing the fitered blastp results.
+		outprefix: prefix to use to name the files and create directories.
 
 	Returns:
 		None. Writes the GFF files to disk.
 	"""
-	os.system("mkdir -p filtered_peptides_gff")
+	outpath = outprefix + '.filtered_peptides_gff'
+	command = "mkdir -p " + outpath
+	os.system(command)
 	seqids2keep = list(blastp_filtered_summary['qseqid'])
-	files_list = glob.glob('extended_peptides_all_gff/*.gff')
+	files_list = glob.glob(outprefix + '.extended_peptides_all_gff/*.gff')
 	for file in files_list:
 		file_string = ''
 		with open(file, 'r') as fh:
@@ -1281,7 +1306,7 @@ def subset_gff(blastp_filtered_summary):
 				else:
 					gff_entry = line.strip().split('\t')
 					peptide_number = gff_entry[8].split(';')[0].replace('ID=pseudogene_', '')
-					peptide_name = gff_entry[0] + '___' + file.replace('extended_peptides_all_gff/', '').replace('pseudogene_finder.', '').replace('.reconstructed_peptides.gff', '') + '___' + 'pseudopeptide_candidate_' + peptide_number
+					peptide_name = gff_entry[0] + '___' + file.replace('extended_peptides_all_gff/', '').replace(outprefix+'.', '').replace('.reconstructed_peptides.gff', '') + '___' + 'pseudopeptide_candidate_' + peptide_number
 					print(peptide_name)
 					if peptide_name in seqids2keep:
 						print('Peptide needs to be kept')
@@ -1312,7 +1337,7 @@ def check_stop_codons(blastp_results, outprefix):
 		print(peptide_id)
 		homolog = peptide_id.split('___')[1]
 		# homolog = p1.sub('', p2.sub('', peptide_id))
-		fasta_file = 'filtered_peptides_fasta/%s.%s.reconstructed_peptides.filtered.fasta' % (outprefix, homolog)
+		fasta_file = '%s.filtered_peptides_fasta/%s.reconstructed_peptides.filtered.fasta' % (outprefix, homolog)
 		count = 0
 		with open(fasta_file) as fh:
 			for peptide in FastaIO.FastaIterator(fh):
@@ -1345,6 +1370,13 @@ if __name__ == '__main__':
 		pass
 	print(args)
 
+	#### VARS ####
+	# Prepare output folder and prefix
+	if args['--outdir'] != './':
+		command = "mkdir -p %s" % args['--outdir']
+		os.system(command)
+
+	outprefix = args['--outdir'] + '/' + args['--outprefix']
 
 	#### MAIN ####
 	#### SUBCOMMAND 1: tblastn ####
@@ -1361,7 +1393,7 @@ if __name__ == '__main__':
 		# Run the tblastn search of the closest homolog proteins against the query genome
 		tblastn_output = tblastn(query=args['--proteins'], target=args['--genome'], wordsize=args['--tblastn_wordsize'], 
 			matrix=args['--tblastn_matrix'], max_evalue=args['--tblastn_max_evalue'], seg_filter=args['--tblastn_seg_filter'], 
-			threads = args['--tblastn_threads'], outprefix=args['--outprefix'])
+			threads = args['--tblastn_threads'], outprefix=outprefix)
 
 		if args['--verbose']:
 			print("tBLASTn completed.")
@@ -1417,10 +1449,10 @@ if __name__ == '__main__':
 				# AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
 
 				# Conduct seed extension
-				os.system('mkdir -p alignments && mkdir -p extended_peptides_all_fasta && mkdir -p extended_peptides_all_gff')
-				with open('extended_peptides_all_gff/' + args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.gff', 'w') as fh:
+				os.system('mkdir -p ' + outprefix + '.alignments && mkdir -p ' + outprefix + '.extended_peptides_all_fasta && mkdir -p ' + outprefix + '.extended_peptides_all_gff')
+				with open(outprefix + '.extended_peptides_all_gff/' + protein_id + '.reconstructed_peptides.gff', 'w') as fh:
 					fh.write('##gff-version 3\n')
-					with open('extended_peptides_all_fasta/' + args['--outprefix'] + '.' + protein_id + '.reconstructed_peptides.fasta', 'w') as fh_seqs:
+					with open(outprefix + '.extended_peptides_all_fasta/' + protein_id + '.reconstructed_peptides.fasta', 'w') as fh_seqs:
 						for scaffold, scaffold_candidate_peptides in primary_seeds.items():
 							id_num = 0 # id to use later to track the number of peptides per homologous protein and scaffold in the GFF files
 							# fh.write(scaffold + '\n')
@@ -1440,7 +1472,7 @@ if __name__ == '__main__':
 								# print(candidate_peptide)
 								# print('EXTENDING DOWNSTREAM OF THE GENOME:')
 
-								for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'downstream', order = 0):
+								for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'downstream', order = 0, outprefix = outprefix):
 									# print('Yielded peptide tuple is: ')
 									# print(peptide_tuple)
 									# check the order and based on the length of the already built peptide duplicate or not
@@ -1464,10 +1496,10 @@ if __name__ == '__main__':
 										# print(reconstructed_peptides_downstream)
 										# print('upstream peptides now like this: ')
 										# print(reconstructed_peptides_upstream)
-								os.system('mv alignments/pairwise_seqs.tmp.fa alignments/' + protein_id + '_' + scaffold + '_candidate_peptide_' + str(peptide_index) + '_downstream.aln.fa')
+								os.system('mv ' + outprefix + '.alignments/pairwise_seqs.tmp.fa '+outprefix+'.alignments/' + protein_id + '_' + scaffold + '_candidate_peptide_' + str(peptide_index) + '_downstream.aln.fa')
 								# print('EXTENDING UPSTREAM OF THE GENOME:')
 								
-								for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'upstream', order = 0):
+								for peptide_tuple in extend_candidate_peptide(candidate_peptide[0], scaffold_seq, protein, direction = 'upstream', order = 0, outprefix = outprefix):
 									# print('Yielded peptide tuple is:')
 									# print(peptide_tuple)
 									# check the order and based on the length of the already built peptide duplicate or not
@@ -1478,7 +1510,7 @@ if __name__ == '__main__':
 									elif len(reconstructed_peptides_upstream[-1]) > order - 1:
 										reconstructed_peptides_upstream.append(reconstructed_peptides_upstream[-1][0:order - 1] + [new_peptide])
 								
-								os.system('mv alignments/pairwise_seqs.tmp.fa alignments/' + protein_id + '_' + scaffold + '_candidate_peptide_' + str(peptide_index) + '_upstream.aln.fa')
+								os.system('mv '+ outprefix +'.alignments/pairwise_seqs.tmp.fa '+outprefix+'.alignments/' + protein_id + '_' + scaffold + '_candidate_peptide_' + str(peptide_index) + '_upstream.aln.fa')
 
 								# Remove initial seed from upstream part so as not to have it duplicated and turn around the peptide as it was built upside down
 								for index in range(0, len(reconstructed_peptides_upstream)):
@@ -1507,7 +1539,7 @@ if __name__ == '__main__':
 								
 								# Try to fill gaps in those peptides that have some NTs in the genome and also some AAs in the homolog between them
 								if not args['--no_gap_bridging']:
-									reconstructed_peptides_complete = gap_bridging(reconstructed_peptides_complete, scaffold_seq, homolog = protein)
+									reconstructed_peptides_complete = gap_bridging(reconstructed_peptides_complete, scaffold_seq, homolog = protein, outprefix = outprefix)
 
 								# Write reconstructed peptides to a GFF file
 								id_num_gff = id_num # rest this to the same value as id_num
@@ -1556,13 +1588,14 @@ if __name__ == '__main__':
 		if args['--verbose']:
 			print("Conducting BLASTp to validate the reconstructed peptides...")
 		# Run blastp validation of the reconstructed peptide sequences (putting them on a single file for speed)
-		os.system('rm -f reconstructed_peptides_all.fasta && for file in extended_peptides_all_fasta/*.reconstructed_peptides.fasta; do cat $file >> reconstructed_peptides_all.fasta; done')
+		command = 'rm -f reconstructed_peptides_all.fasta && for file in ' + outprefix + '.extended_peptides_all_fasta/*.reconstructed_peptides.fasta; do cat $file >> reconstructed_peptides_all.fasta; done'
+		os.system(command)
 		if args['--diamond']:
 			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
-				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'], diamond = True)
+				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = outprefix, block_size = args['--diamond_block_size'], diamond = True)
 		else:
 			blastp_output = blastp(query = 'reconstructed_peptides_all.fasta', target = args['--blastp_db'], wordsize = args['--blastp_wordsize'], matrix = args['--blastp_matrix'],
-				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = 'reconstructed_peptides_all', block_size = args['--diamond_block_size'])
+				max_evalue = args['--blastp_max_evalue'], threads = args['--blastp_threads'], outprefix = outprefix, block_size = args['--diamond_block_size'])
 
 		if args['--verbose']:
 			print('BLASTp completed.')
@@ -1591,9 +1624,9 @@ if __name__ == '__main__':
 				homologs_length_dict[protein_id] = len(protein)
 
 	elif args['runall'] and args['--diamond']:
-		blast_file = "reconstructed_peptides_all" + ".diamond_blastp." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
+		blast_file = outprefix + ".diamond_blastp." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
 	elif args['runall'] and not args['--diamond']:
-		blast_file = "reconstructed_peptides_all" + ".blastp.wordsize" + str(args['--blastp_wordsize']) + "." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
+		blast_file = outprefix + ".blastp.wordsize" + str(args['--blastp_wordsize']) + "." + str(args['--blastp_matrix']) + ".evalue" + str(args['--blastp_max_evalue']) + ".filtered_taxid" + str(args['--parent_taxid']) + ".out"
 
 	if args['filter_blastp'] or args['runall']:		
 		if args['--parent_taxid'] != 1:
@@ -1602,19 +1635,19 @@ if __name__ == '__main__':
 			if args['--excluded_taxids'] is not None:
 				if args['--taxdb'] is not None:
 					taxdb_path = args['--taxdb']
-					blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, taxdb_path + '/nodes.dmp', taxdb_path + '/names.dmp', taxdb_path + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
+					blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, outprefix, taxdb_path + '/nodes.dmp', taxdb_path + '/names.dmp', taxdb_path + '/merged.dmp', excluded_taxids_list = args['--excluded_taxids'])
 				else:
-					blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, excluded_taxids_list = args['--excluded_taxids'])
+					blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, outprefix, excluded_taxids_list = args['--excluded_taxids'])
 			elif args['--taxdb'] is not None:
 				taxdb_path = args['--taxdb']
-				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, taxdb_path + '/nodes.dmp', taxdb_path + '/names.dmp', taxdb_path + '/merged.dmp')
+				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, outprefix, taxdb_path + '/nodes.dmp', taxdb_path + '/names.dmp', taxdb_path + '/merged.dmp')
 			else:
-				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict)
+				blastp_results, blastp_filtered_summary = filter_blastp_output(blastp_output, args['--parent_taxid'], homologs_length_dict, outprefix)
 			blastp_results.to_csv(blast_file, sep = '\t', index = False)
-			subset_fasta(blastp_results)
-			subset_gff(blastp_results)
-			blastp_filtered_summary = check_stop_codons(blastp_filtered_summary, args['--outprefix'])
-			blastp_filtered_summary.to_csv('reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
+			subset_fasta(blastp_results, outprefix)
+			subset_gff(blastp_results, outprefix)
+			blastp_filtered_summary = check_stop_codons(blastp_filtered_summary, outprefix)
+			blastp_filtered_summary.to_csv(outprefix + '.reconstructed_peptides_all.blastp.filtered.summary.tsv', sep = '\t', index = False)
 
 		if args['--verbose']:
 			print("Filtering of BLASTP results completed.\nExecution finished.")
