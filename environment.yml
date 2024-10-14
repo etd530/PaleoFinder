@@ -14,6 +14,7 @@ dependencies:
   - emboss=6.6.0=h008e53c_10
   - entrez-direct=22.4=he881be0_0
   - expat=2.6.3=h5888daf_0
+  - fasta3=36.3.8=hec16e2b_7
   - font-ttf-dejavu-sans-mono=2.37=hab24e00_0
   - font-ttf-inconsolata=3.000=h77eed37_0
   - font-ttf-source-code-pro=2.038=h77eed37_0
