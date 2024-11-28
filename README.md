@@ -29,6 +29,7 @@ This should install all the necessary dependencies to run the program. To verify
 ```
 You should see the help of the program. As an extra check, you can run:
 ```
+conda activate paleofinder
 cd test_dataset
 ../paleofinder.py runall --proteins OrNV_ACH96265.faa --genome venturia_canescens.bipaa.v1.subset.fna --blastp_db viral_proteins.dmnd --parent_taxid 1511852 --diamond --outdir diamond_test > paleofinder.diamond.out 2>paleofinder.diamond.err
 ../paleofinder.py runall --proteins OrNV_ACH96265.faa --genome venturia_canescens.bipaa.v1.subset.fna --blastp_db viral_proteins.faa --parent_taxid 1511852 --outdir blastp_test > paleofinder.blastp.out 2>paleofinder.blastp.err
