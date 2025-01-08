@@ -1139,7 +1139,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, outprefi
 			for gff_entry in fh:
 				gff_entry = gff_entry.split("\t")
 				if gff_entry[0] == scaffold:
-					peptide_number = gff_entry[-1].split(";")[0].strip("ID=pseudogene_")
+					peptide_number = gff_entry[-1].split(";")[0].split("_")[-1]
 					print("___".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]))
 					if query == "___".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]):
 						print(coordinates)
@@ -1305,7 +1305,7 @@ def subset_gff(blastp_filtered_summary, outprefix):
 					file_string = file_string + line
 				else:
 					gff_entry = line.strip().split('\t')
-					peptide_number = gff_entry[8].split(';')[0].replace('ID=pseudogene_', '')
+					peptide_number = gff_entry[8].split(';')[0].split("_")[-1]
 					peptide_name = gff_entry[0] + '___' + file.replace('extended_peptides_all_gff/', '').replace(outprefix+'.', '').replace('.reconstructed_peptides.gff', '') + '___' + 'pseudopeptide_candidate_' + peptide_number
 					print(peptide_name)
 					if peptide_name in seqids2keep:
@@ -1555,7 +1555,7 @@ if __name__ == '__main__':
 											genomic_start = fragment[1]
 											genomic_end = fragment[0]
 											strand = '-'
-										attributes = 'ID=pseudogene_%s;fragment=fragment_%s' % (str(id_num_gff), str(fragment_num))
+										attributes = 'ID=%s-like.pseudogene_%s;fragment=fragment_%s' % (protein_id, str(id_num_gff), str(fragment_num))
 										gff_string = '\t'.join([scaffold, '.', 'pseudogene', str(genomic_start), str(genomic_end), '.', 
 											strand, '.', attributes])
 										fh.write(str(gff_string) + '\n')
