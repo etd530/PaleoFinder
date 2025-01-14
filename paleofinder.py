@@ -1133,9 +1133,9 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, outprefi
 		print("PROTEIN HOMOLOG SEQ ID:")
 		print(protein_homolog_seqid)
 		scaffold = query.split("___")[0]
-		gff_name=".".join([protein_homolog_name, "reconstructed_peptides.gff"])
+		# gff_name=".".join([protein_homolog_name, "reconstructed_peptides.gff"])
 		coordinates=""
-		with open(outprefix + ".extended_peptides_all_gff/"+gff_name, 'r') as fh:
+		with open(outprefix + ".extended_peptides_all_gff/reconstructed_peptides.gff", 'r') as fh:
 			for gff_entry in fh:
 				gff_entry = gff_entry.split("\t")
 				if gff_entry[0] == scaffold:
@@ -1295,27 +1295,26 @@ def subset_gff(blastp_filtered_summary, outprefix):
 	command = "mkdir -p " + outpath
 	os.system(command)
 	seqids2keep = list(blastp_filtered_summary['qseqid'])
-	files_list = glob.glob(outprefix + '.extended_peptides_all_gff/*.gff')
-	for file in files_list:
-		file_string = ''
-		with open(file, 'r') as fh:
-			for line in fh:
-				# print(line)
-				if line.startswith('##'):
+	file_string = ''
+	with open(outprefix + '.extended_peptides_all_gff/reconstructed_peptides.gff', 'r') as fh:
+		for line in fh:
+			# print(line)
+			if line.startswith('##'):
+				file_string = file_string + line
+			else:
+				gff_entry = line.strip().split('\t')
+				peptide_number = gff_entry[8].split(';')[0].split("_")[-1]
+				homolog_name = '_'.join(gff_entry[-1].split(';')[0].replace('ID=', '').replace('-like.pseudogene', '').split('_')[0:-1])
+				peptide_name = gff_entry[0] + '___' + homolog_name + '___' + 'pseudopeptide_candidate_' + peptide_number
+				print(peptide_name)
+				if peptide_name in seqids2keep:
+					print('Peptide needs to be kept')
 					file_string = file_string + line
 				else:
-					gff_entry = line.strip().split('\t')
-					peptide_number = gff_entry[8].split(';')[0].split("_")[-1]
-					peptide_name = gff_entry[0] + '___' + file.replace('extended_peptides_all_gff/', '').replace(outprefix+'.', '').replace('.reconstructed_peptides.gff', '') + '___' + 'pseudopeptide_candidate_' + peptide_number
-					print(peptide_name)
-					if peptide_name in seqids2keep:
-						print('Peptide needs to be kept')
-						file_string = file_string + line
-					else:
-						print('Peptide does not need to be kept')
-		if file_string != '##gff-version 3\n':
-			with open(file.replace('.gff', '.filtered.gff').replace('extended_peptides_all_gff', 'filtered_peptides_gff'), 'w') as wh:
-				wh.write(file_string)
+					print('Peptide does not need to be kept')
+	if file_string != '##gff-version 3\n':
+		with open(outpath + '/reconstructed_peptides_filtered.gff', 'w') as wh:
+			wh.write(file_string)
 
 def check_stop_codons(blastp_results, outprefix):
 	"""
@@ -1450,7 +1449,7 @@ if __name__ == '__main__':
 
 				# Conduct seed extension
 				os.system('mkdir -p ' + outprefix + '.alignments && mkdir -p ' + outprefix + '.extended_peptides_all_fasta && mkdir -p ' + outprefix + '.extended_peptides_all_gff')
-				with open(outprefix + '.extended_peptides_all_gff/' + protein_id + '.reconstructed_peptides.gff', 'w') as fh:
+				with open(outprefix + '.extended_peptides_all_gff/' + 'reconstructed_peptides.gff', 'w') as fh:
 					fh.write('##gff-version 3\n')
 					with open(outprefix + '.extended_peptides_all_fasta/' + protein_id + '.reconstructed_peptides.fasta', 'w') as fh_seqs:
 						for scaffold, scaffold_candidate_peptides in primary_seeds.items():
