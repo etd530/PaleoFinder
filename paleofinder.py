@@ -1411,7 +1411,8 @@ if __name__ == '__main__':
 			print("Extending the peptide seeds found...")
 		# The rest of steps are done protein homolog by protein homolog
 		homologs_length_dict = {}
-		os.system('rm -rf ' + outprefix + '.extended_peptides_all_gff && mkdir -p ' + outprefix + '.extended_peptides_all_gff')
+		os.system('rm -rf ' + outprefix + '.alignments && rm -rf ' + outprefix + '.extended_peptides_all_fasta && rm -rf ' + outprefix + '.extended_peptides_all_gff')
+		os.system('mkdir -p ' + outprefix + '.alignments && mkdir -p ' + outprefix + '.extended_peptides_all_fasta && mkdir -p ' + outprefix + '.extended_peptides_all_gff')
 		with open(outprefix + '.extended_peptides_all_gff/' + 'reconstructed_peptides.gff', 'w') as fh:
 			fh.write('##gff-version 3\n')
 			with open(args['--proteins']) as proteins_fh:
@@ -1451,8 +1452,6 @@ if __name__ == '__main__':
 					# AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
 
 					# Conduct seed extension
-					os.system('rm -rf ' + outprefix + '.alignments && rm -rf ' + outprefix + '.extended_peptides_all_fasta')
-					os.system('mkdir -p ' + outprefix + '.alignments && mkdir -p ' + outprefix + '.extended_peptides_all_fasta')
 					with open(outprefix + '.extended_peptides_all_fasta/' + protein_id + '.reconstructed_peptides.fasta', 'w') as fh_seqs:
 						for scaffold, scaffold_candidate_peptides in primary_seeds.items():
 							id_num = 0 # id to use later to track the number of peptides per homologous protein and scaffold in the GFF files
