@@ -1448,8 +1448,9 @@ if __name__ == '__main__':
 				# AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
 
 				# Conduct seed extension
+				os.system('rm -rf ' + outprefix + '.alignments && rm -rf ' + outprefix + '.extended_peptides_all_fasta && rm -rf ' + outprefix + '.extended_peptides_all_gff')
 				os.system('mkdir -p ' + outprefix + '.alignments && mkdir -p ' + outprefix + '.extended_peptides_all_fasta && mkdir -p ' + outprefix + '.extended_peptides_all_gff')
-				with open(outprefix + '.extended_peptides_all_gff/' + 'reconstructed_peptides.gff', 'w') as fh:
+				with open(outprefix + '.extended_peptides_all_gff/' + 'reconstructed_peptides.gff', 'a') as fh:
 					fh.write('##gff-version 3\n')
 					with open(outprefix + '.extended_peptides_all_fasta/' + protein_id + '.reconstructed_peptides.fasta', 'w') as fh_seqs:
 						for scaffold, scaffold_candidate_peptides in primary_seeds.items():
@@ -1557,6 +1558,8 @@ if __name__ == '__main__':
 										attributes = 'ID=%s-like.pseudogene_%s;fragment=fragment_%s' % (protein_id, str(id_num_gff), str(fragment_num))
 										gff_string = '\t'.join([scaffold, '.', 'pseudogene', str(genomic_start), str(genomic_end), '.', 
 											strand, '.', attributes])
+										print('GFF STRING IS:')
+										print(gff_string)
 										fh.write(str(gff_string) + '\n')
 									id_num_gff += 1 # since there can be more than one peptide per seed, we also increase here for each peptide reconstructed from a given seed, but we increase locally because we need to keep the previous count for the FASTA output
 								
