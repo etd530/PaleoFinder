@@ -1411,47 +1411,48 @@ if __name__ == '__main__':
 			print("Extending the peptide seeds found...")
 		# The rest of steps are done protein homolog by protein homolog
 		homologs_length_dict = {}
-		with open(args['--proteins']) as proteins_fh:
-			for protein in FastaIO.FastaIterator(proteins_fh):
-				protein_id = protein.id
-				print('STARTING NEW PROTEIN: %s' % str(protein_id))
-				if '[' in protein_id or ']' in protein_id or '=' in protein_id or '(' in protein_id or ')' in protein_id:
-					print("WARNING: protein name contains special characters. They have been replaced. Please make sure this is not a problem and if so change your protein IDs manually")
-					protein_id = protein_id.replace('[', '')
-					protein_id = protein_id.replace(']', '')
-					protein_id = protein_id.replace('(', '')
-					protein_id = protein_id.replace(')', '')
-					protein_id = protein_id.replace('=', '_')
-					protein_id = protein_id.replace('/', '_')
+		os.system('rm -rf ' + outprefix + '.extended_peptides_all_gff && mkdir -p ' + outprefix + '.extended_peptides_all_gff')
+		with open(outprefix + '.extended_peptides_all_gff/' + 'reconstructed_peptides.gff', 'w') as fh:
+			fh.write('##gff-version 3\n')
+			with open(args['--proteins']) as proteins_fh:
+				for protein in FastaIO.FastaIterator(proteins_fh):
+					protein_id = protein.id
+					print('STARTING NEW PROTEIN: %s' % str(protein_id))
+					if '[' in protein_id or ']' in protein_id or '=' in protein_id or '(' in protein_id or ')' in protein_id:
+						print("WARNING: protein name contains special characters. They have been replaced. Please make sure this is not a problem and if so change your protein IDs manually")
+						protein_id = protein_id.replace('[', '')
+						protein_id = protein_id.replace(']', '')
+						protein_id = protein_id.replace('(', '')
+						protein_id = protein_id.replace(')', '')
+						protein_id = protein_id.replace('=', '_')
+						protein_id = protein_id.replace('/', '_')
 
-				homologs_length_dict[protein_id] = len(protein)
-				if args['--verbose']:
-					print("Processing results for protein %s" % protein_id)
+					homologs_length_dict[protein_id] = len(protein)
+					if args['--verbose']:
+						print("Processing results for protein %s" % protein_id)
 
-				# Get which positions in the query genome that match the protein homolog
-				primary_seeds = find_primary_seed_coordinates(tblastn_output, protein.id)
-				
-				# print(primary_seeds)
+					# Get which positions in the query genome that match the protein homolog
+					primary_seeds = find_primary_seed_coordinates(tblastn_output, protein.id)
+					
+					# print(primary_seeds)
 
-				# Extract the nucleotide sequence corresponding to those positions
-				extract_fragments_from_fasta(file=args['--genome'], fragments_list=primary_seeds)
+					# Extract the nucleotide sequence corresponding to those positions
+					extract_fragments_from_fasta(file=args['--genome'], fragments_list=primary_seeds)
 
-				# print(primary_seeds)
+					# print(primary_seeds)
 
-				# Translate the nucleotide sequence to AA
-				translate_dna(fragments_list=primary_seeds, frame = 0) # since this comes from tblastn the frist frame is already the good one
+					# Translate the nucleotide sequence to AA
+					translate_dna(fragments_list=primary_seeds, frame = 0) # since this comes from tblastn the frist frame is already the good one
 
-				# print(primary_seeds)
+					# print(primary_seeds)
 
-				# Align the peptide seed to the protein homolog
-				# primary_seed_alignment_list = align_peptides(protein = protein, fragments_list=primary_seeds)
-				# AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
+					# Align the peptide seed to the protein homolog
+					# primary_seed_alignment_list = align_peptides(protein = protein, fragments_list=primary_seeds)
+					# AlignIO.write(primary_seed_alignment_list, 'alignments.' + protein.id + '.all.fa', 'fasta')
 
-				# Conduct seed extension
-				os.system('rm -rf ' + outprefix + '.alignments && rm -rf ' + outprefix + '.extended_peptides_all_fasta && rm -rf ' + outprefix + '.extended_peptides_all_gff')
-				os.system('mkdir -p ' + outprefix + '.alignments && mkdir -p ' + outprefix + '.extended_peptides_all_fasta && mkdir -p ' + outprefix + '.extended_peptides_all_gff')
-				with open(outprefix + '.extended_peptides_all_gff/' + 'reconstructed_peptides.gff', 'a') as fh:
-					fh.write('##gff-version 3\n')
+					# Conduct seed extension
+					os.system('rm -rf ' + outprefix + '.alignments && rm -rf ' + outprefix + '.extended_peptides_all_fasta')
+					os.system('mkdir -p ' + outprefix + '.alignments && mkdir -p ' + outprefix + '.extended_peptides_all_fasta')
 					with open(outprefix + '.extended_peptides_all_fasta/' + protein_id + '.reconstructed_peptides.fasta', 'w') as fh_seqs:
 						for scaffold, scaffold_candidate_peptides in primary_seeds.items():
 							id_num = 0 # id to use later to track the number of peptides per homologous protein and scaffold in the GFF files
