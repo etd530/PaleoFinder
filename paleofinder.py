@@ -1119,7 +1119,6 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, outprefi
 	alien_indexes = {}
 	blastp_summary = pd.DataFrame(data = None, index = [*range(len(queries))], columns = ['query', 'length (aminoacid)', 'belonging_hits_count', 'nonbelonging_hits_count', 
 		'belonging_min_eval', 'nonbelonging_min_eval', 'alien_index', 'position_in_scaffold'])
-	print("HERE")
 	print(blastp_summary.columns)
 	current_index = 0
 	for query in queries:
@@ -1138,7 +1137,9 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, outprefi
 		with open(outprefix + ".extended_peptides_all_gff/reconstructed_peptides.gff", 'r') as fh:
 			for gff_entry in fh:
 				gff_entry = gff_entry.split("\t")
-				if gff_entry[0] == scaffold:
+				gff_protein_homolog_name = gff_entry[-1].split(";")[0].replace("ID=", "")
+				gff_protein_homolog_name = re.sub("-like\.pseudogene_[0-9]+", "", gff_protein_homolog_name)
+				if gff_entry[0] == scaffold and gff_protein_homolog_name == protein_homolog_name:
 					peptide_number = gff_entry[-1].split(";")[0].split("_")[-1]
 					print("___".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]))
 					if query == "___".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]):
@@ -1237,11 +1238,8 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, outprefi
 			alien_indexes[query] = np.inf
 		else:
 			alien_indexes[query] = np.log10(nonbelonging_query_min_eval) - np.log10(belonging_query_min_eval)
-		print("HERE")
 		print(blastp_summary.columns)
 		blastp_summary.loc[current_index, 'alien_index'] = alien_indexes[query]
-		print("HERE")
-		print(blastp_summary.columns)
 		if correct_taxa and homolog_in_hits and alien_indexes[query] > 0:
 			peptides_to_keep.append(query)
 		blastp_subset_df = blastp_df.loc[blastp_df['qseqid'].isin(peptides_to_keep)][blastp_df.columns]
