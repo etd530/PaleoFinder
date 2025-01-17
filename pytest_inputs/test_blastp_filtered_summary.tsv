@@ -1,0 +1,4 @@
+qseqid	sseqid	pident	length	mismatch	gapopen	qstart	qend	sstart	send	evalue	bitscore	sacc	stitle	staxids	sscinames
+scaffold_1___OrNV_EU747721.1_ACH96265.1_135_protein_unknown___pseudopeptide_candidate_0	emb|CRL10814.1| 24.771	109	62	3	4	92	212	320	1.8	40.8	CRL10814	Retron-type reverse transcriptase [Phaeobacter italicus]	481446	Phaeobacter italicus
+scaffold_3___OrNV_EU747721.1_ACH96265.1_135_protein_unknown___pseudopeptide_candidate_1	emb|CRL10814.1| 24.771	109	62	3	4	92	212	320	1.8	40.8	CRL10814	Retron-type reverse transcriptase [Phaeobacter italicus]	481446	Phaeobacter italicus
+scaffold_2___OrNV_EU747721.1_ACH96265.1_135_protein_unknown___pseudopeptide_candidate_0	emb|CRL10814.1| 24.771	109	62	3	4	92	212	320	1.8	40.8	CRL10814	Retron-type reverse transcriptase [Phaeobacter italicus]	481446	Phaeobacter italicus
