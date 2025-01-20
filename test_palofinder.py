@@ -3,6 +3,7 @@
 #### LIBS ####
 import paleofinder as pf
 import filecmp
+from Bio.Seq import Seq
 
 #### Tests for make_blast_db ####
 # NOT PRIORITARY TO TEST
@@ -21,6 +22,45 @@ def test_find_primary_seed_coordinates():
 	seed_coordinates = pf.find_primary_seed_coordinates(input_tblastn_results, query_seq_id='OrNV_EU747721.1_ACH96131.1_1_[protein=dnapol_B]')
 	print(seed_coordinates)
 	assert seed_coordinates == correct_seed_coordinates	
+
+#### Tests for extract_fragments_from_fasta ####
+# Test that the correct fragments are extracted from the correct scaffolds
+def test_extract_fragments_from_fasta():
+	input_fragments_list = {'scaffold_1': [[[33, 43, 640, 719]]], 'scaffold_2': [[[38, 49, 126, 336]]], 'scaffold_3': [[[32, 50, 72, 161]]]}
+	output_fragments_list = {'scaffold_1': [[[33, 43, Seq('GTAGCATGTTA'), 640, 719]]], 'scaffold_2': [[[38, 49, Seq('AGCATCTTATCG'), 126, 336]]], 'scaffold_3': [[[32, 50, Seq('CGACTAGCCGGCATAGGCG'), 72, 161]]]} 
+	file = 'pytest_inputs/test_genome_input.fasta'
+
+	pf.extract_fragments_from_fasta(file, input_fragments_list)
+	assert input_fragments_list == output_fragments_list
+
+#### Tests for extract_fragments_from_scaffold ####
+# Test that the correct fragment is recovered when extracting from the forward strand
+def test_extract_fragments_from_scaffold_forward_strand():
+	coordinates = [15, 40]
+	scaffold = Seq('TTACACAAAGGCATTTATGAGCGCGCTAGGGCTCACGAGCATCTTATCGAGCAGCGAGTTTAGCAGCATCACGAGCTACGTAGCGCGGTTTAGCAGCGAT')
+	correct_fragment = Seq('TTATGAGCGCGCTAGGGCTCACGAGC')
+	fragment = pf.extract_fragments_from_scaffold(scaffold, coordinates)
+	assert fragment == correct_fragment
+
+# Test that the correct fragment is recovered when extracting from the reverse strand
+def test_extract_fragments_from_scaffold_reverse_strand():
+	coordinates = [40, 15]
+	scaffold = Seq('TTACACAAAGGCATTTATGAGCGCGCTAGGGCTCACGAGCATCTTATCGAGCAGCGAGTTTAGCAGCATCACGAGCTACGTAGCGCGGTTTAGCAGCGAT')
+	correct_fragment = Seq('GCTCGTGAGCCCTAGCGCGCTCATAA')
+	fragment = pf.extract_fragments_from_scaffold(scaffold, coordinates)
+	assert fragment == correct_fragment
+
+#### Tests for translate_dna ####
+# Test that the correct translations are generated when using the first reading frame
+def test_translate_dna_first_frame():
+	input_fragments_list = {'scaffold_1': [[[33, 43, Seq('GTAGCATGTTA'), 640, 719]]], 'scaffold_2': [[[38, 49, Seq('AGCATCTTATCG'), 126, 336]]], 'scaffold_3': [[[32, 50, Seq('CGACTAGCCGGCATAGGCG'), 72, 161]]]} 
+	correct_fragments_list = {'scaffold_1': [[[33, 43, Seq('GTAGCATGTTA'), Seq('VAC'), 640, 719]]], 'scaffold_2': [[[38, 49, Seq('AGCATCTTATCG'), Seq('SILS'), 126, 336]]], 'scaffold_3': [[[32, 50, Seq('CGACTAGCCGGCATAGGCG'), Seq('RLAGIG'), 72, 161]]]} 
+	pf.translate_dna(input_fragments_list, frame=0)
+	print(input_fragments_list)
+	assert input_fragments_list == correct_fragments_list
+
+
+
 
 #### Tests for subset_gff ####
 # Test that the right entries are kept from the unfiltered gff

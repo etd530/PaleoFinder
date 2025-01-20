@@ -281,7 +281,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, outpr
 
 	Arguments:
 		candidate_peptide: a list containing the start and end coordinates of the peptide in the genome's scaffold and the nucleotide sequence.
-		scaffold: a Seq object containing the sequence of the scaffold form which the peptide was translated.
+		scaffold: a Seq object containing the sequence of the scaffold from which the peptide was translated.
 		protein_homolog: the protein to which compare subsequent fragments of the protein.
 		outprefix: prefix to create output files and directories.
 		direction: string indicating whether the peptide must be extended upstream or downstream on the scaffold.
@@ -1138,7 +1138,7 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, outprefi
 			for gff_entry in fh:
 				gff_entry = gff_entry.split("\t")
 				gff_protein_homolog_name = gff_entry[-1].split(";")[0].replace("ID=", "")
-				gff_protein_homolog_name = re.sub("-like\.pseudogene_[0-9]+", "", gff_protein_homolog_name)
+				gff_protein_homolog_name = re.sub(r"-like\.pseudogene_[0-9]+", "", gff_protein_homolog_name)
 				if gff_entry[0] == scaffold and gff_protein_homolog_name == protein_homolog_name:
 					peptide_number = gff_entry[-1].split(";")[0].split("_")[-1]
 					print("___".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]))
