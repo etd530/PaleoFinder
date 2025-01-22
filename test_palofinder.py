@@ -59,8 +59,15 @@ def test_translate_dna_first_frame():
 	print(input_fragments_list)
 	assert input_fragments_list == correct_fragments_list
 
+#### Tests for align_peptides_simple ####
+# NOT PRIORITARY TO TEST
 
+#### Tests for align_bridges ####
+# NOT PRIORITARY TO TEST
 
+#### Tests for get_scaffold_from_fasta #####
+def test_get_scaffold_from_fasta():
+	correct_output = Seq('')
 
 #### Tests for subset_gff ####
 # Test that the right entries are kept from the unfiltered gff
