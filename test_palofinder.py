@@ -67,7 +67,43 @@ def test_translate_dna_first_frame():
 
 #### Tests for get_scaffold_from_fasta #####
 def test_get_scaffold_from_fasta():
-	correct_output = Seq('')
+	correct_output = Seq('TACGTACGATAGCGCCTTAGCATGCATCGAGGGTAGCATGTTAGCGACGATCGATCAGCGGCGATCGATCGGACGATTCAGCATCGATTTTGCTAGCATG')
+	output = pf.get_scaffold_from_fasta('pytest_inputs/test_genome_input.fasta', 'scaffold_1')
+	assert output == correct_output
+
+#### Tests for get_next_fragment_coordinates ####
+# Test for correct coordinates when moving downstream and peptides being forward
+def test_get_next_fragment_coordinates_forward_downstream():
+	candidate_peptide = [10, 20, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	direction = 'downstream'
+	fragment_size = 30
+	correct_start = 21
+	correct_end = 50
+	start, end = pf.get_next_fragment_coordinates(direction, candidate_peptide, fragment_size)
+	assert start == correct_start and end == correct_end
+
+# Test for correct coordinates when moving upstream and peptides being forward
+def test_get_next_fragment_coordinates_forward_upstream():
+	candidate_peptide = [100, 120, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	direction = 'upstream'
+	fragment_size = 30
+	correct_start = 70
+	correct_end = 99
+	start, end = pf.get_next_fragment_coordinates(direction, candidate_peptide, fragment_size)
+	assert start == correct_start and end == correct_end
+
+####################################################################################
+# Test for correct coordinates when moving downstream and peptides being reverse####
+#### ADD TEST																	####
+# Test for correct coordinates when moving upstream and peptides being reverse  ####
+#### ADD TEST																	####
+####################################################################################
+
+#### Tests for check_fragment_contiguity ####
+# def test_check_fragment_contiguity_upstream_lead_contiguous():
+# 	input_candidate_peptide = [10, 20, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+# 	input_homolog_start = 
+
 
 #### Tests for subset_gff ####
 # Test that the right entries are kept from the unfiltered gff

@@ -275,6 +275,70 @@ def get_scaffold_from_fasta(genome, scaffold):
 			if sequence.id == scaffold:
 				return(sequence.seq)
 
+def get_next_fragment_coordinates(direction, candidate_peptide, fragment_size):
+	"""
+	Get the coordinates of the next fragment to evaluate based on the direction of the extension and the fragment size.
+
+	Arguments:
+		direction: wether the fragments are going downstream or upstream of the genome lead strand.
+		candidate_peptide: the peptide to evaluate.
+		fragment_size: the size of the fragments to use for the successive alignments to extend the peptide.
+
+	Returns:
+		A tuple with the start and end coordinates of the next fragment to evaluate.
+	"""
+	if direction == 'downstream':
+			if candidate_peptide[0] < candidate_peptide[1]:
+				next_fragment_start = candidate_peptide[1] + 1
+				next_fragment_end = candidate_peptide[1] + fragment_size
+			else:
+				next_fragment_start = candidate_peptide[0] + fragment_size
+				next_fragment_end = candidate_peptide[0] + 1
+
+	if direction == 'upstream':
+		if candidate_peptide[0] < candidate_peptide[1]:
+			next_fragment_start = candidate_peptide[0] - fragment_size
+			next_fragment_end = candidate_peptide[0] -1
+		else:
+			next_fragment_start = candidate_peptide[1] - 1
+			next_fragment_end = candidate_peptide[1] - fragment_size
+	
+	return(next_fragment_start, next_fragment_end)
+
+def check_fragment_contiguity(direction, candidate_peptide, homolog_start, homolog_end):
+	"""
+	Check if the fragment is contiguous with the previously aligned one.
+
+	Arguments:
+		direction: wether the fragments are going downstream or upstream of the genome lead strand.
+		candidate_peptide: the peptide to evaluate.
+		homolog_start: the start of the homologous protein where the peptide aligns.
+		homolog_end: the end of the homologous protein where the peptide aligns.
+	"""
+	if direction == 'downstream': # if fragments go downstream of the genome lead strand
+		if candidate_peptide[0] < candidate_peptide[1]: # if the gene is in the lead strand
+			if 0 < homolog_start - candidate_peptide[5] <= 10:
+				contiguous = True
+			else:
+				contiguous = False
+		else:
+			if 0 < candidate_peptide[4] - homolog_end <= 10:
+				contiguous = True
+			else:
+				contiguous = False
+	else:
+		if candidate_peptide[0] < candidate_peptide[1]:
+			if 0 < candidate_peptide[4] - homolog_end <= 10:
+				contiguous = True
+			else:
+				contiguous = False
+		else:
+			if 0 < homolog_start - candidate_peptide[5] <= 10:
+				contiguous = True
+			else:
+				contiguous = False
+	return(contiguous)
+
 def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, outprefix, direction = 'downstream', order = 0, fragment_size = 90, do_local = True, reading_frame = 'All'):
 	"""
 	Given a short AA sequence, extend it based on similarity of subsequent fragments from the genome of origin to a reference protein sequence.
