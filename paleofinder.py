@@ -311,9 +311,9 @@ def check_fragment_contiguity(direction, candidate_peptide, homolog_start, homol
 
 	Arguments:
 		direction: wether the fragments are going downstream or upstream of the genome lead strand.
-		candidate_peptide: the peptide to evaluate.
-		homolog_start: the start of the homologous protein where the peptide aligns.
-		homolog_end: the end of the homologous protein where the peptide aligns.
+		candidate_peptide: the peptide fragment from which the extension is being done.
+		homolog_start: the start of the next possible fragment relative to the full sequence of the homologous protein.
+		homolog_end: the end of the next possible fragment relative to the full sequence of the homologous protein.
 	"""
 	if direction == 'downstream': # if fragments go downstream of the genome lead strand
 		if candidate_peptide[0] < candidate_peptide[1]: # if the gene is in the lead strand
@@ -364,21 +364,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, outpr
 	print('FRAGMENT SIZE:')
 	print(fragment_size)
 	# Get coordinates of next fragment to evaluate (1-based indexing since these are BLAST coordinates)
-	if direction == 'downstream':
-		if candidate_peptide[0] < candidate_peptide[1]:
-			next_fragment_start = candidate_peptide[1] + 1
-			next_fragment_end = candidate_peptide[1] + fragment_size
-		else:
-			next_fragment_start = candidate_peptide[0] + fragment_size
-			next_fragment_end = candidate_peptide[0] + 1
-
-	if direction == 'upstream':
-		if candidate_peptide[0] < candidate_peptide[1]:
-			next_fragment_start = candidate_peptide[0] - fragment_size
-			next_fragment_end = candidate_peptide[0] -1
-		else:
-			next_fragment_start = candidate_peptide[1] - 1
-			next_fragment_end = candidate_peptide[1] - fragment_size
+	next_fragment_start, next_fragment_end = get_next_fragment_coordinates(direction, candidate_peptide, fragment_size)
 	print('INITIAL COORDINATES OF NEXT FRAGMENT:')
 	print(next_fragment_start)
 	print(next_fragment_end)
@@ -478,28 +464,7 @@ def extend_candidate_peptide(candidate_peptide, scaffold, protein_homolog, outpr
 					# print(candidate_peptide[5])
 					# print(homolog_start)
 					# print(homolog_end)
-					if direction == 'downstream': # if fragments go downstream of the genome lead strand
-						if candidate_peptide[0] < candidate_peptide[1]: # if the gene is in the lead strand
-							if 0 < homolog_start - candidate_peptide[5] <= 10:
-								contiguous = True
-							else:
-								contiguous = False
-						else:
-							if 0 < candidate_peptide[4] - homolog_end <= 10:
-								contiguous = True
-							else:
-								contiguous = False
-					else:
-						if candidate_peptide[0] < candidate_peptide[1]:
-							if 0 < candidate_peptide[4] - homolog_end <= 10:
-								contiguous = True
-							else:
-								contiguous = False
-						else:
-							if 0 < homolog_start - candidate_peptide[5] <= 10:
-								contiguous = True
-							else:
-								contiguous = False
+					contiguous = check_fragment_contiguity(direction, candidate_peptide, homolog_start, homolog_end)
 
 					# Compute PID without considering start/end gaps
 					# print(start)
