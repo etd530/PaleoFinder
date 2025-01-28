@@ -92,18 +92,134 @@ def test_get_next_fragment_coordinates_forward_upstream():
 	start, end = pf.get_next_fragment_coordinates(direction, candidate_peptide, fragment_size)
 	assert start == correct_start and end == correct_end
 
-####################################################################################
-# Test for correct coordinates when moving downstream and peptides being reverse####
-#### ADD TEST																	####
-# Test for correct coordinates when moving upstream and peptides being reverse  ####
-#### ADD TEST																	####
-####################################################################################
+# Test for correct coordinates when moving downstream and peptides being reverse
+def test_get_next_fragment_coordinates_reverse_downstream():
+	candidate_peptide = [20, 10, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	direction = 'downstream'
+	fragment_size = 30
+	correct_start = 50
+	correct_end = 21
+	start, end = pf.get_next_fragment_coordinates(direction, candidate_peptide, fragment_size)
+	assert start == correct_start and end == correct_end
+
+# Test for correct coordinates when moving upstream and peptides being reverse
+def test_get_next_fragment_coordinates_reverse_upstream():
+	candidate_peptide = [120, 100, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	direction = 'upstream'
+	fragment_size = 30
+	correct_start = 99
+	correct_end = 70
+	start, end = pf.get_next_fragment_coordinates(direction, candidate_peptide, fragment_size)
+	assert start == correct_start and end == correct_end
 
 #### Tests for check_fragment_contiguity ####
-# def test_check_fragment_contiguity_upstream_lead_contiguous():
-# 	input_candidate_peptide = [10, 20, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
-# 	input_homolog_start = 
+# Test for contiguity when moving downstream and peptides being forward
+def test_check_fragment_contiguity_downstream_forward_contiguous():
+	input_candidate_peptide = [10, 20, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 42
+	input_homolog_end = 50
+	direction = 'downstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == True
 
+# Test for non-contiguity when moving downstream and peptides being forward, and next fragment being too far downstream
+def test_check_fragment_contiguity_downstream_forward_not_contiguous_too_far():
+	input_candidate_peptide = [10, 20, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 43
+	input_homolog_end = 50
+	direction = 'downstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == False
+
+# Test for non-contiguity when moving downstream and peptides being forward, and next fragment being upstream
+def test_check_fragment_contiguity_downstream_forward_not_contiguous_upstream():
+	input_candidate_peptide = [10, 20, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 20
+	input_homolog_end = 50
+	direction = 'downstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == False
+
+# Test for contiguity when moving upstream and peptides being forward
+def test_check_fragment_contiguity_upstream_forward_contiguous():
+	input_candidate_peptide = [100, 120, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 10
+	input_homolog_end = 20
+	direction = 'upstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == True
+
+# Test for non-contiguity when moving upstream and peptides being forward, and next fragment being too far upstream
+def test_check_fragment_contiguity_upstream_forward_not_contiguous_too_far():
+	input_candidate_peptide = [100, 120, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 10
+	input_homolog_end = 19
+	direction = 'upstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == False
+
+# Test for non-contiguity when moving upstream and peptides being forward, and next fragment being downstream
+def test_check_fragment_contiguity_upstream_forward_not_contiguous_downstream():
+	input_candidate_peptide = [100, 120, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 10
+	input_homolog_end = 30
+	direction = 'upstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == False
+
+# Test for contiguity when moving downstream and peptides being reverse
+def test_check_fragment_contiguity_downstream_reverse_contiguous():
+	input_candidate_peptide = [20, 10, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 10
+	input_homolog_end = 20
+	direction = 'downstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == True
+
+# Test for non-contiguity when moving downstream and peptides being reverse, and next fragment being too far upstream
+def test_check_fragment_contiguity_downstream_reverse_not_contiguous_too_far():
+	input_candidate_peptide = [20, 10, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 10
+	input_homolog_end = 19
+	direction = 'downstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == False
+
+# Test for non-contiguity when moving downstream and peptides being reverse, and next fragment being downstream
+def test_check_fragment_contiguity_downstream_reverse_not_contiguous_downstream():
+	input_candidate_peptide = [20, 10, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 10
+	input_homolog_end = 30
+	direction = 'downstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == False
+
+# Test for contiguity when moving upstream and peptides being reverse
+def test_check_fragment_contiguity_upstream_reverse_contiguous():
+	input_candidate_peptide = [120, 100, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 42
+	input_homolog_end = 50
+	direction = 'upstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == True
+
+# Test for non-contiguity when moving upstream and peptides being reverse, and next fragment being too far downstream
+def test_check_fragment_contiguity_upstream_reverse_not_contiguous_too_far():
+	input_candidate_peptide = [120, 100, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 43
+	input_homolog_end = 50
+	direction = 'upstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == False
+
+# Test for non-contiguity when moving upstream and peptides being reverse, and next fragment being upstream
+def test_check_fragment_contiguity_upstream_reverse_not_contiguous_upstream():
+	input_candidate_peptide = [120, 100, Seq('ATCGATCGATC'), Seq('MID'), 30, 32]
+	input_homolog_start = 32
+	input_homolog_end = 50
+	direction = 'upstream'
+	contiguous = pf.check_fragment_contiguity(direction, input_candidate_peptide, input_homolog_start, input_homolog_end)
+	assert contiguous == False
 
 #### Tests for subset_gff ####
 # Test that the right entries are kept from the unfiltered gff
