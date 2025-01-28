@@ -1365,7 +1365,7 @@ def subset_gff(blastp_filtered_summary, outprefix):
 				file_string = file_string + line
 			else:
 				gff_entry = line.strip().split('\t')
-				peptide_number = gff_entry[8].split(';')[0].split("_")[-1]
+				peptide_number = gff_entry[8].split(';')[0].split("_")[-1].split('.')[0]
 				homolog_name = '_'.join(gff_entry[-1].split(';')[0].replace('ID=', '').replace('-like.pseudogene', '').split('_')[0:-1])
 				peptide_name = gff_entry[0] + '___' + homolog_name + '___' + 'pseudopeptide_candidate_' + peptide_number
 				print(peptide_name)
@@ -1617,11 +1617,9 @@ if __name__ == '__main__':
 											genomic_start = fragment[1]
 											genomic_end = fragment[0]
 											strand = '-'
-										attributes = 'ID=%s-like.pseudogene_%s;fragment=fragment_%s' % (protein_id, str(id_num_gff), str(fragment_num))
+										attributes = 'ID=%s-like.pseudogene_%s.%s;fragment=fragment_%s' % (protein_id, str(id_num_gff), str(fragment_num), str(fragment_num))
 										gff_string = '\t'.join([scaffold, '.', 'pseudogene', str(genomic_start), str(genomic_end), '.', 
 											strand, '.', attributes])
-										print('GFF STRING IS:')
-										print(gff_string)
 										fh.write(str(gff_string) + '\n')
 									id_num_gff += 1 # since there can be more than one peptide per seed, we also increase here for each peptide reconstructed from a given seed, but we increase locally because we need to keep the previous count for the FASTA output
 								
