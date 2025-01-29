@@ -1167,9 +1167,10 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, outprefi
 			for gff_entry in fh:
 				gff_entry = gff_entry.split("\t")
 				gff_protein_homolog_name = gff_entry[-1].split(";")[0].replace("ID=", "")
-				gff_protein_homolog_name = re.sub(r"-like\.pseudogene_[0-9]+", "", gff_protein_homolog_name)
+				gff_protein_homolog_name = re.sub(r"-like\.pseudogene_[0-9]+\.[0-9]+", "", gff_protein_homolog_name)
 				if gff_entry[0] == scaffold and gff_protein_homolog_name == protein_homolog_name:
-					peptide_number = gff_entry[-1].split(";")[0].split("_")[-1]
+					peptide_number = gff_entry[-1].split(";")[0].split("_")[-1].split(".")[0]
+					assert peptide_number.isdigit() # make sure this is an integer
 					print("___".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]))
 					if query == "___".join([scaffold, protein_homolog_name, "pseudopeptide_candidate_" + peptide_number]):
 						print(coordinates)
@@ -1182,8 +1183,11 @@ def filter_blastp_output(blastp_df, parent_taxid, homologs_length_dict, outprefi
 						else:
 							assert orientation == gff_entry[6]
 							coordinates = coordinates+","+"..".join(gff_entry[3:5])
-			if orientation == '-':
-				coordinates = coordinates + ")"
+			try:
+				if orientation == '-':
+					coordinates = coordinates + ")"
+			except UnboundLocalError:
+				sys.exit("ERROR: Orientation is not set. Is the query name being parsed correctly from the GFF file?")
 
 		correct_taxa = False
 		homolog_in_hits = False
