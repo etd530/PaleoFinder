@@ -1,0 +1,14 @@
+##gff-version 3
+##feature-ontology http://song.cvs.sourceforge.net/viewvc/song/ontology/sofa.obo?revision=1.269
+##interproscan-version 5.72-103.0
+##sequence-region scaffold1___protein1___pseudopeptide_candidate_1 1 100
+scaffold1___protein1___pseudopeptide_candidate_1	.	polypeptide	1	100	.	+	.	ID=scaffold1___protein1___pseudopeptide_candidate_1;md5=c136f63c9e0dbff300ae2362b8cf099a
+scaffold1___protein1___pseudopeptide_candidate_1	Pfam	protein_match	1	25	1.5E-5	+	.	date=19-12-2024;Target=scaffold1___protein1___pseudopeptide_candidate_1 1 25;ID=match$15_1_25;signature_desc=Ankyrin repeat signature;Name=PR01415;status=T;Dbxref="InterPr>
+scaffold1___protein1___pseudopeptide_candidate_1	Pfam	protein_match	26	50	1.5E-5	+	.	date=19-12-2024;Target=scaffold1___protein1___pseudopeptide_candidate_1 26 50;ID=match$15_26_50;signature_desc=Ankyrin repeat signature;Name=PR01415;status=T;Dbxref="InterPr>
+scaffold1___protein1___pseudopeptide_candidate_1	Pfam	protein_match	5	48	1.5E-5	+	.	date=19-12-2024;Target=scaffold1___protein1___pseudopeptide_candidate_1 5 48;ID=match$15_5_48;signature_desc=Ankyrin repeat signature;Name=PR01415;status=T;Dbxref="InterPr>
+##sequence-region scaffold1___protein2___pseudopeptide_candidate_1 1 100
+scaffold1___protein2___pseudopeptide_candidate_1	.	polypeptide	1	100	.	+	.	ID=scaffold1___protein2___pseudopeptide_candidate_1;md5=c136f63c9e0dbff300ae2362b8cf099a
+scaffold1___protein2___pseudopeptide_candidate_1	Pfam	protein_match	1	10	1.5E-5	+	.	date=19-12-2024;Target=scaffold1___protein2___pseudopeptide_candidate_1 1 10;ID=match$15_1_10;signature_desc=Ankyrin repeat signature;Name=PR01415;status=T;Dbxref="InterPr>
+scaffold1___protein2___pseudopeptide_candidate_1	Pfam	protein_match	8	20	1.5E-5	+	.	date=19-12-2024;Target=scaffold1___protein2___pseudopeptide_candidate_1 8 20;ID=match$15_8_20;signature_desc=Ankyrin repeat signature;Name=PR01415;status=T;Dbxref="InterPr>
+##sequence-region protein3 1 100
+scaffold2___protein3___pseudopeptide_candidate_2	.	polypeptide	1	100	.	+	.	ID=scaffold2___protein3___pseudopeptide_candidate_2;md5=c136f63c9e0dbff300ae2362b8cf099a

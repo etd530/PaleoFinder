@@ -1,0 +1,4 @@
+query	length (aminoacid)	belonging_hits_count	nonbelonging_hits_count belonging_min_eval	nonbelonging_min_eval	alien_index	position_in_scaffold	homolog length (aminoacid)	lengths ratio	Stop codons presence
+scaffold1___protein1___pseudopeptide_candidate_0	273	15	72	5.810000000000001e-70	9.169999999999999e-48	22	3895..3915,3918..4706	278	0.9820143884892086	N
+scaffold1___protein1___pseudopeptide_candidate_1	273	15	72	5.810000000000001e-70	9.169999999999999e-48	11	3895..3915,3918..4706	278	0.9820143884892086	N
+scaffold1___protein1___pseudopeptide_candidate_2	273	15	72	5.810000000000001e-70	9.169999999999999e-48	5	3895..3915,3918..4706	278	0.9820143884892086	N
