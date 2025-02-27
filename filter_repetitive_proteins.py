@@ -27,6 +27,7 @@ import re
 import glob
 from Bio.SeqIO import FastaIO
 from Bio import SeqIO
+import os
 
 #### FUNCTIONS ####
 def list_peptides(fasta):
@@ -126,7 +127,7 @@ def subset_gff(gff, peptides2keep, outsuffix):
 	Returns:
 		None. Writes the GFF files to disk.
 	"""
-	outprefix=gff.strip('gff3')
+	outprefix=os.path.basename(gff).strip('.gff3')
 	with open(gff, 'r') as fh:
 		for line in fh:
 			# print(line)
@@ -146,7 +147,7 @@ def subset_gff(gff, peptides2keep, outsuffix):
 				else:
 					print('Peptide does not need to be kept')
 	if file_string != '##gff-version 3\n':
-		with open(gff.replace('.gff', outsuffix), 'w') as wh:
+		with open(outprefix+outsuffix, 'w') as wh:
 			wh.write(file_string)
 
 def subset_fasta(fasta, peptides2keep, outsuffix):
@@ -167,7 +168,7 @@ def subset_fasta(fasta, peptides2keep, outsuffix):
 			if sequence.id in peptides2keep:
 				file_string = file_string + ">%s\n%s\n" % (sequence.id, sequence.seq)
 	if len(file_string) > 0:
-		outfile = fasta.replace('.fasta', outsuffix)
+		outfile = os.path.basename(fasta).replace('.fasta', outsuffix)
 		with open(outfile, 'w') as wh:
 			wh.write(file_string)
 	else:
@@ -194,7 +195,7 @@ def subset_blastp_output(blastp, peptides2keep, outsuffix):
 				peptide = line.strip().split('\t')[0]
 				if peptide in peptides2keep:
 					file_string = file_string + line
-	with open(blastp.replace('.out', outsuffix), 'w') as wh:
+	with open(os.path.basename(blastp).replace('.out', outsuffix), 'w') as wh:
 		wh.write(file_string)
 
 def subset_blastp_summary(blastp_summary, peptides2keep, outsuffix):
@@ -218,7 +219,7 @@ def subset_blastp_summary(blastp_summary, peptides2keep, outsuffix):
 				peptide = line.strip().split('\t')[0]
 				if peptide in peptides2keep:
 					file_string = file_string + line
-	with open(blastp_summary.replace('.tsv', outsuffix), 'w') as wh:
+	with open(os.path.basename(blastp_summary).replace('.tsv', outsuffix), 'w') as wh:
 		wh.write(file_string)
 
 if __name__ == '__main__':
