@@ -1,4 +1,4 @@
 ##gff-version	3
-scaffold1	.	pseudogene	21000	21700	.	-	.	ID=protein1-like.pseudogene_0;fragment=fragment_1
-scaffold1	.	pseudogene	21200	22000	.	+	.	ID=protein1-like.pseudogene_1;fragment=fragment_1
-scaffold1	.	pseudogene	21800	22300	.	+	.	ID=protein1-like.pseudogene_2;fragment=fragment_1
+scaffold1	.	pseudogene	21000	21700	.	-	.	ID=protein1-like.pseudogene_0.1;fragment=fragment_1
+scaffold1	.	pseudogene	21200	22000	.	+	.	ID=protein1-like.pseudogene_1.1;fragment=fragment_1
+scaffold1	.	pseudogene	21800	22300	.	+	.	ID=protein1-like.pseudogene_2.1;fragment=fragment_1
